@@ -1,0 +1,312 @@
+---
+title: "BLOSSOM Feasibility Query: Sepsis Cohort Definitions"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 6
+    toc_collapsed: no
+    toc_float: no
+---
+
+```{r setup, include=FALSE}
+# # Default taken from R notebook behavior: when knitting, wd will always be location of notebook
+# base_dir <- '..'
+# Sys.setenv(PEDSNET_SKIP_REQUEST_EXECUTION=1)
+# tryCatch(source('../site/run.R'),
+#          error = function (e) message(e)) # May not be able to make db connection
+# 
+# # Set to "local" to read data from ../results, or another value to read from db
+# data_source <- if_else(config('execution_mode') == 'distribution', 'local', 'not_local')
+
+##############################################################
+library(argos)
+library(srcr)
+library(stringr)
+library(DBI)
+library(purrr)
+library(tibble) #' includes the view function
+
+##############################################################
+
+require(tidyr)
+require(knitr)
+require(kableExtra)
+require(stringr)
+require(tibble)
+require(ggplot2)
+require(gtsummary)
+require(tidyverse)
+require(reactable)
+require(squba)
+require(ggiraph)
+require(UpSetR)
+require(grid)
+require(ggiraph)
+
+get_results <- function(tbl_name) {
+  if (data_source == 'local') {
+    rslt <- read_csv(paste0('../results/', tbl_name, '.csv'))
+  }
+  else {
+    rslt <- results_tbl(tbl_name) %>% collect()
+  }
+rslt
+}
+
+prettify_kable <- function(data) {
+  rslt <- data %>% kable(digits = 2, format.args = list(big.mark = ','))
+  if (knitr::is_html_output()) rslt <- rslt %>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+    column_spec(1, bold = F, border_right = T)
+  rslt
+}
+
+prettify_kable2 <- function(data) {
+  rslt <- data %>% kable(digits = 2, format.args = list(big.mark = ','))
+  if (knitr::is_html_output()) rslt <- rslt %>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+      scroll_box(width = "800px", height = "600px")
+  rslt
+}
+
+################################################################################
+
+source('/Users/hirabayask/Documents/Repos/github/blossom_feasibility/code/funs.R')
+source('/Users/hirabayask/Documents/Repos/github/blossom_feasibility/setup/argos_wrapper.R')
+source('/Users/hirabayask/.srcr/set_httr_config.R')
+
+iceberg_session_v59 <- initialize_session(session_name = 'idd_iceberg',
+                                          db_conn = srcr('trino_v59_iceberg'),
+                                          is_json = FALSE,
+                                          cdm_schema = 'pedsnet_dcc_v59', ## replace with location of CDM data
+                                          results_schema = 'blossom_feasibility',
+                                          retain_intermediates = TRUE,
+                                          db_trace = TRUE, ## set to TRUE for SQL code to print to the console (like verbose)
+                                          vocabulary_schema = 'v59_vocabulary',
+                                          results_tag = '')
+
+
+set_argos_default(iceberg_session_v59)
+
+################################################################################
+
+
+attrition_tbl <- results_tbl('attrition') %>% collect()
+
+sepsis_adt <- results_tbl('confirmed_sepsis_adt') %>%
+  mutate(age=as.numeric(age)) %>% collect()
+
+sepsis_visit <- results_tbl('confirmed_sepsis_visit') %>%
+  mutate(age=as.numeric(age)) %>% collect()
+
+
+#' Try combining demographics together onto one table
+demog_summary_adt <- results_tbl('demog_summary_sepsis_adt') %>%
+  select(variable, category, n_pct) %>% rename(`adt_date confirmed N (%)`=n_pct)
+
+demog_summary_visit <- results_tbl('demog_summary_sepsis_visit') %>%
+  select(variable, category, n_pct) %>% rename(`visit_start_date confirmed N (%)`=n_pct)
+
+demog_summary_adt_cchmc_colorado <- results_tbl('demog_summary_sepsis_adt_cchmc_colorado') %>%
+  select(variable, category, n_pct) %>% rename(`adt_date confirmed N (%) cchmc and colorado`=n_pct)
+
+demog_summary_visit_cchmc_colorado <- results_tbl('demog_summary_sepsis_visit_cchmc_colorado') %>%
+  select(variable, category, n_pct) %>% rename(`visit_start_date confirmed N (%) cchmc and colorado`=n_pct)
+
+
+demog_summary_suspected_adt <- results_tbl('demog_summary_suspected_sepsis_adt') %>%
+  select(variable, category, n_pct) %>% rename(`adt_date suspected N (%)`=n_pct)
+
+demog_summary_suspected_visit <- results_tbl('demog_summary_suspected_sepsis_visit') %>%
+  select(variable, category, n_pct) %>% rename(`visit_start_date suspected N (%)`=n_pct)
+
+demog_summary_suspected_adt_cchmc_colorado <- results_tbl('demog_summary_suspected_sepsis_adt_cchmc_colorado') %>%
+  select(variable, category, n_pct) %>% rename(`adt_date suspected N (%) cchmc and colorado`=n_pct)
+
+demog_summary_suspected_visit_cchmc_colorado <- results_tbl('demog_summary_suspected_sepsis_visit_cchmc_colorado') %>%
+  select(variable, category, n_pct) %>% rename(`visit_start_date suspected N (%) cchmc and colorado`=n_pct)
+
+demog_summary_suspected_ed_ip <- results_tbl('demog_summary_suspected_sepsis') %>%
+  select(variable, category, n_pct) %>% rename(`suspected ED/IP N (%)`=n_pct)
+
+demog_summary_suspected_ed_ip_cchmc_colorado <- results_tbl('demog_summary_suspected_sepsis_cchmc_colorado') %>%
+  select(variable, category, n_pct) %>% rename(`suspected ED/IP N (%) cchmc and colorado`=n_pct)
+
+demog_summary_all <- demog_summary_adt %>%
+  left_join(demog_summary_visit, by=c('variable', 'category')) %>%
+  left_join(demog_summary_suspected_adt, by=c('variable', 'category')) %>%
+  left_join(demog_summary_suspected_visit, by=c('variable', 'category')) %>%
+  left_join(demog_summary_suspected_ed_ip, by=c('variable', 'category')) %>%
+  collect() %>%
+  arrange(variable, category) %>%
+  mutate(variable = case_when(variable=='1_Total' ~ 'Total',
+                              TRUE ~ variable))
+
+demog_summary_cchmc_colorado <- demog_summary_adt_cchmc_colorado %>%
+  left_join(demog_summary_visit_cchmc_colorado, by=c('variable', 'category')) %>%
+  left_join(demog_summary_suspected_adt_cchmc_colorado, by=c('variable', 'category')) %>%
+  left_join(demog_summary_suspected_visit_cchmc_colorado, by=c('variable', 'category')) %>%
+  left_join(demog_summary_suspected_ed_ip_cchmc_colorado, by=c('variable', 'category')) %>%
+  collect() %>%
+  arrange(variable, category) %>%
+  mutate(variable = case_when(variable=='1_Total' ~ 'Total',
+                              TRUE ~ variable))
+
+# sepsis_codes <- results_tbl('dx_sepsis') %>% select(concept_id, concept_name, concept_code, vocabulary_id) %>% collect()
+# px_blood_culture_codes <- results_tbl('px_blood_culture') %>% select(concept_id, concept_name, concept_code, vocabulary_id) %>% collect()
+# lab_blood_culture_codes <- results_tbl('lab_blood_culture') %>% select(concept_id, concept_name, concept_code, vocabulary_id) %>% collect()
+# iv_fluids_codes <- results_tbl('iv_fluids') %>% select(concept_id, concept_name, concept_code, vocabulary_id, fluid, category) %>% collect()
+# med_broad_spec_abx_codes <- results_tbl('med_broad_spec_abx') %>% select(concept_id, concept_name, concept_code, vocabulary_id, category) %>% collect()
+
+```
+
+### Confidentiality
+
+**Please treat the contents of this report as confidential, and do not
+redistribute beyond PEDSnet staff and the requester.**
+
+### Notes and Data Source
+* **Data Source:** pedsnet_dcc_v59
+
+### Patient Attrition (All Sites)
+
+* Confirmed sepsis is identified via sepsis condition codes.
+* Suspected sepsis is identified via the following components:
+  * 1. Blood culture measurement labs or procedures AND
+  * 2. Broad spectrum antibiotics AND
+  * 3. IV fluids
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+attrition_tbl %>% reactable(defaultPageSize=17)
+```
+
+
+### Demographics: All Sites
+* Demographics are shown for the following groups:
+   * Confirmed sepsis: Indexing based on **adt_date** associated with PICU record (within 7 days)
+   * Confirmed sepsis: Indexing based on **visit_start_date** associated with PICU record (within 7 days)
+   * Suspected sepsis: Indexing based on **adt_date** associated with PICU record (within 7 days)
+   * Suspected sepsis: Indexing based on **visit_start_date** associated with PICU record (within 7 days)
+   * [NOT ASSOCIATED WITH PICU RECORD] Suspected sepsis in ED-to-inpatient visits (on same visit)
+   
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+demog_summary_all %>% reactable(defaultPageSize=24)
+
+```
+
+### Demographics: CCHMC and Colorado only
+* Demographics are shown for the following groups:
+   * Confirmed sepsis: Indexing based on **adt_date** associated with PICU record (within 7 days)
+   * Confirmed sepsis: Indexing based on **visit_start_date** associated with PICU record (within 7 days)
+   * Suspected sepsis: Indexing based on **adt_date** associated with PICU record (within 7 days)
+   * Suspected sepsis: Indexing based on **visit_start_date** associated with PICU record (within 7 days)
+   * [NOT ASSOCIATED WITH PICU RECORD] Suspected sepsis in ED-to-inpatient visits (on same visit)
+   
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+demog_summary_cchmc_colorado %>% reactable(defaultPageSize=24)
+
+```
+
+<!-- ### Codesets -->
+
+<!-- #### Sepsis condition codes -->
+<!-- * Used to identify "confirmed sepsis" -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+<!-- sepsis_codes %>% reactable(searchable=TRUE) -->
+<!-- ``` -->
+
+<!-- #### Blood culture procedure codes -->
+<!-- * Used as a component within "suspected sepsis" -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+<!-- px_blood_culture_codes %>% reactable(searchable=TRUE) -->
+<!-- ``` -->
+
+<!-- #### Blood culture lab codes -->
+<!-- * Used as a component within "suspected sepsis" -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+<!-- lab_blood_culture_codes %>% reactable(searchable=TRUE) -->
+<!-- ``` -->
+
+<!-- #### IV fluid codes -->
+<!-- * Used as a component within "suspected sepsis" -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+<!-- iv_fluids_codes %>% reactable(searchable=TRUE) -->
+<!-- ``` -->
+
+<!-- #### Broad spectrum antibiotic codes -->
+<!-- * Used as a component within "suspected sepsis" -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+<!-- med_broad_spec_abx_codes %>% reactable(searchable=TRUE) -->
+<!-- ``` -->
+
+<!-- ### Demographics (Indexing on visit_start_date) -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+
+<!-- demog_visit <- sepsis_visit %>% -->
+<!--   select(age, age_group, site, sex_cat, raceth_cat) %>% -->
+<!--   tbl_summary(label = list(age_group = 'Age Group', -->
+<!--                            site = 'Site', -->
+<!--                            sex_cat = 'Sex', -->
+<!--                            raceth_cat = 'Race/Ethnicity'), -->
+<!--               statistic = list(all_continuous() ~ "{mean} ({sd})")) -->
+
+<!-- demog_visit -->
+
+<!-- ``` -->
+
+<!-- ### Demographics (Indexing on adt_date) -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+
+<!-- demog_adt <- sepsis_adt %>% -->
+<!--   select(age, age_group, site, sex_cat, raceth_cat) %>% -->
+<!--   tbl_summary(label = list(age_group = 'Age Group', -->
+<!--                            site = 'Site', -->
+<!--                            sex_cat = 'Sex', -->
+<!--                            raceth_cat = 'Race/Ethnicity'), -->
+<!--               statistic = list(all_continuous() ~ "{mean} ({sd})")) -->
+
+<!-- demog_adt -->
+
+<!-- ``` -->
+
+<!-- ### Demographics (Indexing on visit_start_date and subsetting to CCHMC and Colorado) -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+
+<!-- demog_visit_cchmc_colorado <- sepsis_visit %>% -->
+<!--   filter(site %in% c('cchmc', 'colorado')) %>% -->
+<!--   select(age, age_group, site, sex_cat, raceth_cat) %>% -->
+<!--   tbl_summary(label = list(age_group = 'Age Group', -->
+<!--                            site = 'Site', -->
+<!--                            sex_cat = 'Sex', -->
+<!--                            raceth_cat = 'Race/Ethnicity'), -->
+<!--               statistic = list(all_continuous() ~ "{mean} ({sd})")) -->
+
+<!-- demog_visit_cchmc_colorado -->
+
+<!-- ``` -->
+
+<!-- ### Demographics (Indexing on adt_date and subsetting to CCHMC and Colorado) -->
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
+
+<!-- demog_adt_cchmc_colorado <- sepsis_adt %>% -->
+<!--   filter(site %in% c('cchmc', 'colorado')) %>% -->
+<!--   select(age, age_group, site, sex_cat, raceth_cat) %>% -->
+<!--   tbl_summary(label = list(age_group = 'Age Group', -->
+<!--                            site = 'Site', -->
+<!--                            sex_cat = 'Sex', -->
+<!--                            raceth_cat = 'Race/Ethnicity'), -->
+<!--               statistic = list(all_continuous() ~ "{mean} ({sd})")) -->
+
+<!-- demog_adt_cchmc_colorado -->
+
+<!-- ``` -->
+
+
+
+
+
+

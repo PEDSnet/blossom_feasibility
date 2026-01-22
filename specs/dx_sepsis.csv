@@ -1,0 +1,27 @@
+concept_id,concept_name,concept_code,vocabulary_id,ancestor_concept_id,ancestor_concept_name
+40484176,Neutropenic sepsis,443980004,SNOMED,132797,Sepsis
+37394658,Severe sepsis,1036671000000106,SNOMED,132797,Sepsis
+35622881,Late-onset neonatal sepsis,765107002,SNOMED,132797,Sepsis
+4154698,Transient respiratory distress with sepsis,371044001,SNOMED,132797,Sepsis
+44782631,Sepsis with cutaneous manifestations,700055009,SNOMED,132797,Sepsis
+46284902,Red flag sepsis,957431000000102,SNOMED,132797,Sepsis
+36717263,Sepsis without acute organ dysfunction,1092461000119104,SNOMED,132797,Sepsis
+4071063,Sepsis of the newborn,206376005,SNOMED,132797,Sepsis
+37017557,Perinatal sepsis,713854001,SNOMED,132797,Sepsis
+46284901,Uncomplicated sepsis,957421000000104,SNOMED,132797,Sepsis
+132797,Sepsis,91302008,SNOMED,132797,Sepsis
+4064718,"Sepsis during labor, delivered",199710008,SNOMED,132797,Sepsis
+37312594,Sepsis without septic shock,789043007,SNOMED,132797,Sepsis
+35622880,Early-onset neonatal sepsis,765106006,SNOMED,132797,Sepsis
+36674642,Sepsis caused by virus,770349000,SNOMED,132797,Sepsis
+4060807,Sepsis during labor with antenatal problem,199711007,SNOMED,132797,Sepsis
+44784135,Overwhelming infection in asplenic patient,700050004,SNOMED,132797,Sepsis
+4042397,Acute tubulointerstitial nephritis associated with systemic infection,16751003,SNOMED,132797,Sepsis
+196236,Septic shock,76571007,SNOMED,0,NA
+4029281,Sepsis syndrome,238150007,SNOMED,0,NA
+4031168,Sepsis-associated organ dysfunction,238151006,SNOMED,0,NA
+4046106,Sepsis-associated encephalopathy,230361008,SNOMED,0,NA
+4079695,Sepsis-associated left ventricular failure,277638005,SNOMED,0,NA
+4340675,Sepsis-related gastritis,235657005,SNOMED,0,NA
+36716312,Acute kidney injury due to sepsis,722278006,SNOMED,0,NA
+40487101,Clinical sepsis,447931005,SNOMED,0,NA
