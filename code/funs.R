@@ -162,55 +162,95 @@ get_demog_summary <- function(cohort=results_tbl('confirmed_sepsis_adt'),
 }
 
 
+#' #' Make attrition table
+#' get_attrition_tbl <- function(all_pat_ct=all_pat_ct,
+#'                           picu_ct=picu_ct,
+#'                           picu_adt_2y_pat_ct=picu_adt_2y_pat_ct,
+#'                           picu_visit_2y_pat_ct=picu_visit_2y_pat_ct,
+#'                           picu_adt_under18_pat_ct=picu_adt_under18_pat_ct,
+#'                           picu_visit_under18_pat_ct=picu_visit_under18_pat_ct,
+#'                           confirmed_sepsis_adt_ct=confirmed_sepsis_adt_ct,
+#'                           confirmed_sepsis_visit_ct=confirmed_sepsis_visit_ct,
+#'                           suspected_sepsis_adt_ct=suspected_sepsis_adt_ct,
+#'                           suspected_sepsis_visit_ct=suspected_sepsis_visit_ct,
+#'                           confirmed_sepsis_adt_cchmc_colorado_ct=confirmed_sepsis_adt_cchmc_colorado_ct,
+#'                           confirmed_sepsis_visit_cchmc_colorado_ct=confirmed_sepsis_visit_cchmc_colorado_ct,
+#'                           suspected_sepsis_adt_cchmc_colorado_ct=suspected_sepsis_adt_cchmc_colorado_ct,
+#'                           suspected_sepsis_visit_cchmc_colorado_ct=suspected_sepsis_visit_cchmc_colorado_ct,
+#'                           ER_linked_to_inpatient_ct=ER_linked_to_inpatient_ct,
+#'                           suspected_sepsis_ed_ip_ct=suspected_sepsis_ed_ip_ct,
+#'                           suspected_sepsis_ed_ip_cchmc_colorado_ct=suspected_sepsis_ed_ip_cchmc_colorado_ct
+#'                           
+#' ) {
+#'   
+#'   
+#'   counts <- c(all_pat_ct, picu_ct,
+#'               picu_adt_2y_pat_ct, picu_visit_2y_pat_ct,
+#'               picu_adt_under18_pat_ct, picu_visit_under18_pat_ct,
+#'               confirmed_sepsis_adt_ct, confirmed_sepsis_visit_ct,
+#'               suspected_sepsis_adt_ct, suspected_sepsis_visit_ct,
+#'               confirmed_sepsis_adt_cchmc_colorado_ct, confirmed_sepsis_visit_cchmc_colorado_ct,
+#'               suspected_sepsis_adt_cchmc_colorado_ct, suspected_sepsis_visit_cchmc_colorado_ct,
+#'               ER_linked_to_inpatient_ct, suspected_sepsis_ed_ip_ct,
+#'               suspected_sepsis_ed_ip_cchmc_colorado_ct
+#'               )
+#'   
+#'   descriptions <- c('1. All Patients in the PEDSnet CDM: v59', '2A. From 1: All patients with a PICU record',
+#'                     '3A. From 2A: Patients with a PICU record from 01/01/2009 - 7/31/2025 (by adt_date and filtering for admissions or transfers in)',
+#'                     '3B. From 2A: Patients with a PICU record from 01/01/2009 - 7/31/2025 (by visit_start_date)',
+#'                     '4A. From 3A: Patients aged >=0 and <18 as of their adt_date',
+#'                     '4B. From 3B: Patients aged >=0 and <18 as of their visit_start_date',
+#'                     '5A. From 4A: Patients with a sepsis condition code within 7 days before or after their adt_date',
+#'                     '5B: From 4B: Patients with a sepsis condition code within 7 days before or after their visit_start_date',
+#'                     '5C: From 4A: Patients with suspected sepsis (blood culture lab/measurement AND broad spectrum antibiotics AND IV fluids within 7 days before or after their adt_date)',
+#'                     '5D: From 4B: Patients with suspected sepsis (blood culture lab/measurement AND broad spectrum antibiotics AND IV fluids within 7 days before or after their visit_start_date)',
+#'                     '6A. From 5A: Patients subset to sites: CCHMC and Colorado',
+#'                     '6B: From 5B: Patients subset to sites: CCHMC and Colorado',
+#'                     '6C: From 5C: Patients subset to sites: CCHMC and Colorado',
+#'                     '6D: From 5D: Patients subset to sites: CCHMC and Colorado',
+#'                     '2X: From 1: Patients with an ED visit linked to an inpatient visit',
+#'                     '3X: From 2X: Patients aged >=0 and <18 as of their sepsis visit_start_date, with suspected sepsis (blood culture lab/measurement AND broad spectrum antibiotics AND IV fluids in the same visit)',
+#'                     '4X: From 3X: Patients subset to sites: CCHMC and Colorado'
+#'   )
+#'   
+#'   attrition_tbl <- cbind(descriptions, counts) %>% as_tibble()
+#'   
+#'   return(attrition_tbl)
+#' }
+
+
 #' Make attrition table
-get_attrition_tbl <- function(all_pat_ct=all_pat_ct,
-                          picu_ct=picu_ct,
-                          picu_adt_2y_pat_ct=picu_adt_2y_pat_ct,
-                          picu_visit_2y_pat_ct=picu_visit_2y_pat_ct,
-                          picu_adt_under18_pat_ct=picu_adt_under18_pat_ct,
-                          picu_visit_under18_pat_ct=picu_visit_under18_pat_ct,
-                          confirmed_sepsis_adt_ct=confirmed_sepsis_adt_ct,
-                          confirmed_sepsis_visit_ct=confirmed_sepsis_visit_ct,
-                          suspected_sepsis_adt_ct=suspected_sepsis_adt_ct,
-                          suspected_sepsis_visit_ct=suspected_sepsis_visit_ct,
-                          confirmed_sepsis_adt_cchmc_colorado_ct=confirmed_sepsis_adt_cchmc_colorado_ct,
-                          confirmed_sepsis_visit_cchmc_colorado_ct=confirmed_sepsis_visit_cchmc_colorado_ct,
-                          suspected_sepsis_adt_cchmc_colorado_ct=suspected_sepsis_adt_cchmc_colorado_ct,
-                          suspected_sepsis_visit_cchmc_colorado_ct=suspected_sepsis_visit_cchmc_colorado_ct,
-                          ER_linked_to_inpatient_ct=ER_linked_to_inpatient_ct,
-                          suspected_sepsis_ed_ip_ct=suspected_sepsis_ed_ip_ct,
-                          suspected_sepsis_ed_ip_cchmc_colorado_ct=suspected_sepsis_ed_ip_cchmc_colorado_ct
-                          
+get_attrition_tbl2 <- function(all_pat_ct=all_pat_ct,
+                              picu_ct=picu_ct,
+                              picu_adt_2y_pat_ct=picu_adt_2y_pat_ct,
+                              picu_adt_under18_pat_ct=picu_adt_under18_pat_ct,
+                              suspected_sepsis_adt_ct=suspected_sepsis_adt_ct,
+                              confirmed_sepsis_adt_ct=confirmed_sepsis_adt_ct,
+                              suspected_sepsis_adt_cchmc_colorado_ct=suspected_sepsis_adt_cchmc_colorado_ct,
+                              confirmed_sepsis_adt_cchmc_colorado_ct=confirmed_sepsis_adt_cchmc_colorado_ct
 ) {
   
   
-  counts <- c(all_pat_ct, picu_ct,
-              picu_adt_2y_pat_ct, picu_visit_2y_pat_ct,
-              picu_adt_under18_pat_ct, picu_visit_under18_pat_ct,
-              confirmed_sepsis_adt_ct, confirmed_sepsis_visit_ct,
-              suspected_sepsis_adt_ct, suspected_sepsis_visit_ct,
-              confirmed_sepsis_adt_cchmc_colorado_ct, confirmed_sepsis_visit_cchmc_colorado_ct,
-              suspected_sepsis_adt_cchmc_colorado_ct, suspected_sepsis_visit_cchmc_colorado_ct,
-              ER_linked_to_inpatient_ct, suspected_sepsis_ed_ip_ct,
-              suspected_sepsis_ed_ip_cchmc_colorado_ct
-              )
+  counts <- c(all_pat_ct,
+              picu_ct,
+              picu_adt_2y_pat_ct,
+              picu_adt_under18_pat_ct,
+              suspected_sepsis_adt_ct,
+              confirmed_sepsis_adt_ct,
+              suspected_sepsis_adt_cchmc_colorado_ct,
+              confirmed_sepsis_adt_cchmc_colorado_ct
+              
+  )
   
-  descriptions <- c('1. All Patients in the PEDSnet CDM: v59', '2A. From 1: All patients with a PICU record',
-                    '3A. From 2A: Patients with a PICU record from 01/01/2009 - 7/31/2025 (by adt_date and filtering for admissions or transfers in)',
-                    '3B. From 2A: Patients with a PICU record from 01/01/2009 - 7/31/2025 (by visit_start_date)',
-                    '4A. From 3A: Patients aged >=0 and <18 as of their adt_date',
-                    '4B. From 3B: Patients aged >=0 and <18 as of their visit_start_date',
-                    '5A. From 4A: Patients with a sepsis condition code within 7 days before or after their adt_date',
-                    '5B: From 4B: Patients with a sepsis condition code within 7 days before or after their visit_start_date',
-                    '5C: From 4A: Patients with suspected sepsis (blood culture lab/measurement AND broad spectrum antibiotics AND IV fluids within 7 days before or after their adt_date)',
-                    '5D: From 4B: Patients with suspected sepsis (blood culture lab/measurement AND broad spectrum antibiotics AND IV fluids within 7 days before or after their visit_start_date)',
-                    '6A. From 5A: Patients subset to sites: CCHMC and Colorado',
-                    '6B: From 5B: Patients subset to sites: CCHMC and Colorado',
-                    '6C: From 5C: Patients subset to sites: CCHMC and Colorado',
-                    '6D: From 5D: Patients subset to sites: CCHMC and Colorado',
-                    '2X: From 1: Patients with an ED visit linked to an inpatient visit',
-                    '3X: From 2X: Patients aged >=0 and <18 as of their sepsis visit_start_date, with suspected sepsis (blood culture lab/measurement AND broad spectrum antibiotics AND IV fluids in the same visit)',
-                    '4X: From 3X: Patients subset to sites: CCHMC and Colorado'
+  descriptions <- c('1. All Patients in the PEDSnet CDM: v59',
+                    '2. From 1: All patients with a PICU record',
+                    '3. From 2: Patients with a PICU record from 01/01/2009 - 7/31/2025',
+                    '4. From 3: Patients aged >=0 and <18',
+                    '5: From 4: Patients with suspected sepsis (blood culture lab/measurement AND broad spectrum antibiotics AND IV fluids within 7 days)',
+                    '6. From 5: Patients with confirmed sepsis (suspected sepsis + a sepsis condition code within 7 days)',
+                    '5B: From 5: Patients with suspected sepsis -- subset to CCHMC and Colorado',
+                    '6B. From 6: Patients with confirmed sepsis -- subset to CCHMC and Colorado'
+                    
   )
   
   attrition_tbl <- cbind(descriptions, counts) %>% as_tibble()
@@ -218,4 +258,197 @@ get_attrition_tbl <- function(all_pat_ct=all_pat_ct,
   return(attrition_tbl)
 }
 
+
+#' 
+#' #' Find ICU entry events
+#' #'
+#' #' Given a date range and information about what constitutes an ICU admission of
+#' #' interest, retrieve the ADT records corresponding to those events.
+#' #'
+#' #' @param start The earliest Date to considerx
+#' #' @param end The latest Date to consider
+#' #' @param adt The tibble containing ADT records of interest
+#' #' @param icus A vector of concept IDs for ICU services of interest
+#' #' @param events A vector of concept IDs for the ADT type concepts of interest
+#' #'
+#' #' @return A tibble of included events
+#' #' @md
+#' get_icu_admits <- function(start = as.Date('2019-07-01'),
+#'                            end = as.Date('2020-07-01'),
+#'                            adt = cdm_tbl('adt_occurrence'),
+#'                            icus = c(2000000078L),
+#'                            events = c(2000000083L, 2000000085L)) {
+#'   adt %>%
+#'     filter(adt_type_concept_id %in% local(events) &
+#'              between(adt_date, {{start}}, {{end}}) &
+#'              service_concept_id %in% local(icus))
+#' }
+#' 
+#' #' Build a set of episodes from ADT events
+#' #'
+#' #' Given a set of ADT event records, construct a set of episodes,
+#' #' or time intervals bounded by `Transfer in` and `Transfer out` events.
+#' #' If multiple `Transfer in` events occur in a row, the earliest is used.
+#' #' If multiple `Transfer out` events occur in a row, the latest is used.
+#' #' Both ends of an episode must have the same `visit_occurrence_id`. Each
+#' #' episode is assigned as the episode ID the `adt_occurence_id` of the
+#' #' starting event.
+#' #'
+#' #' Normally, an episode is constructed only when paired in/out events are
+#' #' found.  However, you may optionally supply a set of `visit_occurrence`
+#' #' records, in which case the `visit_start_datetime` is treated as a potential
+#' #' `Transfer in` event (i.e. if the first ADT event is a `Transfer out`, an
+#' #' episode from admission to the transfer event is constructed) and vice versa.
+#' #' Where an episode starts at admission, the episode ID is -1.
+#' #'
+#' #' @param adt_occurrence The tibble of ADT events
+#' #' @param visit_occurrence The tibble of visits.  Defaults to NA.
+#' #' @param start_types A vector of values for `adt_type_concept_id` that can
+#' #'   start an episode.  Defaults to c(2000000083 [Admission], 2000000085
+#' #'   [Transfer in]).
+#' #' @param end_types A vector of values for `adt_type_concept_id` that can end an
+#' #'   episode.  Defaults to c(2000000084 [Discharge], 2000000086 [Transfer out]).
+#' #' @param max_gap A duration object specifying the distance between the end of
+#' #'   one ADT-defined episode and the beginning of the next below which the two
+#' #'   should be merged into a single episode.
+#' #'
+#' #' @return A local tibble of episodes
+#' #' @md
+#' build_episodes <- function(adt_occurrence,
+#'                            visit_occurrence = NA,
+#'                            start_types = c(2000000083L, 2000000085L),
+#'                            end_types = c(2000000084L, 2000000086L),
+#'                            ignore_types=c(2000000087L),
+#'                            max_gap = dhours(12)) {
+#'   # Throw an error if there are more than 2 start/stop events at a given
+#'   # datetime as we have not handled that case
+#'   max <- adt_occurrence %>%
+#'     mutate(
+#'       type = case_when(
+#'         adt_type_concept_id %in% start_types ~ "start",
+#'         adt_type_concept_id %in% end_types ~ "end",
+#'         .default = "other"
+#'       )
+#'     ) %>%
+#'     count(person_id,
+#'           adt_datetime,
+#'           start_or_end = type %in% c("start", "end")) %>%
+#'     summarize(max = max(n)) %>%
+#'     pull()
+#'   
+#'   assertthat::assert_that(max <= 2, msg = paste("There was more than one",
+#'                                                 "start/stop event at a given datetime; this function does not currently",
+#'                                                 "handle that case"))
+#'   
+#'   if (any(!is.na(visit_occurrence)))
+#'     visit_occurrence <- collect(visit_occurrence)
+#'   collect(adt_occurrence) %>%
+#'     filter(!adt_type_concept_id%in%ignore_types)%>%
+#'     group_by(person_id, visit_occurrence_id, site) %>%
+#'     group_modify(
+#'       function (adts, v_id) {
+#'         # Create a mock episode to simplify unions later
+#'         ep <- tibble(episode_id = 0L,
+#'                      episode_start_date = Sys.Date(),
+#'                      episode_start_datetime = Sys.time(),
+#'                      episode_end_date = Sys.Date(),
+#'                      episode_end_datetime = Sys.time())
+#'         adts <- adts %>% select(adt_occurrence_id, adt_datetime, adt_date,
+#'                                 adt_type_concept_id) %>%
+#'           # Remove pairs of start/stops that happened at the same datetime
+#'           # It is impossible to definitively order them and they do not change
+#'           # the state (ongoing or not) of the episode
+#'           mutate(type = case_when(adt_type_concept_id %in% start_types ~ "start",
+#'                                   adt_type_concept_id %in% end_types ~ "end",
+#'                                   .default = "other")) %>%
+#'           group_by(adt_datetime,
+#'                    # We do not want to exclude census events
+#'                    start_or_end = type %in% c("start", "end")) %>%
+#'           mutate(both = ("start" %in% type & "end" %in% type)) %>%
+#'           filter(!both) %>%
+#'           ungroup() %>%
+#'           select(-c(type, start_or_end, both)) %>%
+#'           arrange(adt_datetime)
+#'         
+#'         # See whether we can find a visit start and end as bookends to orphaned
+#'         # ADT events
+#'         if (any(!is.na(visit_occurrence))) {
+#'           v <- filter(visit_occurrence,
+#'                       visit_occurrence_id == local(v_id$visit_occurrence_id))
+#'           if (nrow(v) &&
+#'               ! any(adts[[1, 'adt_type_concept_id']] == start_types))
+#'             adts <- add_row(adts,adt_datetime = v$visit_start_datetime,
+#'                             adt_date = v$visit_start_date,
+#'                             adt_type_concept_id = start_types[1],
+#'                             adt_occurrence_id = -1)
+#'           if (nrow(v) &&
+#'               ! any(adts[[nrow(adts), 'adt_type_concept_id']] == end_types))
+#'             adts <- add_row(adts, adt_datetime = v$visit_end_datetime,
+#'                             adt_date = v$visit_end_date,
+#'                             adt_type_concept_id = end_types[1],
+#'                             adt_occurrence_id = -2)
+#'           adts <- arrange(adts, adt_datetime)
+#'         }
+#'         
+#'         
+#'         # As much as while() loops are discouraged in R, this is much clearer
+#'         # than trying to play with vectorized operations
+#'         i <- 1
+#'         in_episode <- FALSE
+#'         while( i <= nrow(adts)) {
+#'           if (! in_episode &&
+#'               any(adts[[i,'adt_type_concept_id']] == start_types)) {
+#'             in_episode <- TRUE
+#'             ep_start_dt <- adts[[i, 'adt_datetime']]
+#'             ep_start_d  <- adts[[i, 'adt_date']]
+#'             ep_id <- adts[[i, 'adt_occurrence_id']]
+#'             while(i < nrow(adts) &&
+#'                   any(adts[[i, 'adt_type_concept_id']] == start_types)) i <- i + 1
+#'           }
+#'           else {
+#'             if (in_episode & any(adts[[i, 'adt_type_concept_id']] == end_types)) {
+#'               # If you prefer to close the episode at the first transfer out event,
+#'               # move this runoff to after the episode construction
+#'               while(i < nrow(adts) &&
+#'                     any(adts[[i + 1, 'adt_type_concept_id']] == end_types)) i <- i + 1
+#'               # Don't construct an episode solely from the visit bookends
+#'               if (nrow(adts) == 2 &&
+#'                   ep_id == -1 && adts[[i, 'adt_occurrence_id']] == -2) {
+#'                 i <- i + 1
+#'                 next
+#'               }
+#'               ep <- add_row(ep, episode_id = ep_id,
+#'                             episode_start_date = ep_start_d,
+#'                             episode_start_datetime = ep_start_dt,
+#'                             episode_end_date = adts[[i, 'adt_date']],
+#'                             episode_end_datetime = adts[[i, 'adt_datetime']])
+#'               in_episode <- FALSE
+#'             }
+#'             i <- i + 1
+#'           }
+#'         }
+#'         
+#'         # Now, merge adjacent episodes
+#'         # Remember to get rid of the mock episode
+#'         ep <- filter(ep, episode_id != 0) %>%
+#'           arrange(episode_start_datetime, episode_end_datetime)
+#'         merged <- slice(ep,1)
+#'         i <- 2
+#'         j <- 1
+#'         while (i <= nrow(ep)) {
+#'           if (ep[[i, 'episode_start_datetime']] -
+#'               merged[[j, 'episode_end_datetime']] < max_gap) {
+#'             merged[[j, 'episode_end_datetime']] <- ep[[i, 'episode_end_datetime']]
+#'             merged[[j, 'episode_end_date']] <- ep[[i, 'episode_end_date']]
+#'           }
+#'           else {
+#'             merged <- add_row(merged, nth(ep,i))
+#'             j <- j + 1
+#'           }
+#'           i <- i + 1
+#'         }
+#'         ungroup(merged) %>% distinct()
+#'       })%>%
+#'     ungroup()
+#' }
 

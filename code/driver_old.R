@@ -1,0 +1,673 @@
+################### SOURCE WHATEVER FILES ######################
+library(argos)
+library(srcr)
+library(stringr)
+
+library(RPostgres)
+library(RPresto)
+library(assertthat)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(DBI)
+library(dbplyr)
+library(lubridate)
+library(tibble) #' includes the view function 
+library(squba)
+library(readr)
+
+#source(file.path(getwd(), 'setup', 'setup.R'))
+source(file.path(getwd(), 'setup', 'argos_wrapper.R'))
+source(file.path(getwd(), 'code', 'funs.R'))
+source('/Users/hirabayask/.srcr/set_httr_config.R')
+
+##############################################################
+
+# library(DBI)
+# db=config('db_src')
+# dbExecute(db, 'create schema blossom_feasibility')
+
+iceberg_session_v59 <- initialize_session(session_name = 'idd_iceberg',
+                                          db_conn = srcr('trino_v59_iceberg'),
+                                          is_json = FALSE,
+                                          cdm_schema = 'pedsnet_dcc_v59', ## replace with location of CDM data
+                                          results_schema = 'blossom_feasibility',
+                                          retain_intermediates = TRUE,
+                                          db_trace = TRUE, ## set to TRUE for SQL code to print to the console (like verbose)
+                                          vocabulary_schema = 'v59_vocabulary',
+                                          results_tag = '')
+
+#set_argos_default(postgres_session_v58)
+set_argos_default(iceberg_session_v59)
+
+################################################################################
+
+#' Take a look at latest visit dates per site
+cdm_tbl('visit_occurrence') %>%
+  group_by(site) %>%
+  summarise(max_visit_date=max(as.Date(visit_start_date))) %>%
+  view()
+
+################################################################################
+#' Find patients in PEDSnet
+
+all_pat_ct <- cdm_tbl('person') %>% distinct(person_id) %>% count() %>% pull()
+
+################################################################################
+#' Find patients with a PICU visit
+
+picu <- cdm_tbl('adt_occurrence') %>%
+  filter(service_concept_id==2000000078L) %>%
+  left_join(cdm_tbl('visit_occurrence') %>%
+              select(visit_occurrence_id, visit_start_date, visit_end_date), by=c('visit_occurrence_id')) %>%
+  left_join(cdm_tbl('person') %>% select(person_id, birth_date), by=c('person_id'))
+
+picu_ct <- picu %>% distinct(person_id) %>% count() %>% pull()
+
+################################################################################
+#' Find patients with a PICU visit within 2 years prior to the latest visit date in v59
+#' (looking at the earliest of the latest visit dates per site by v59, approximately:
+#' so looking from 7/31/2023 - 7/31/2025)
+
+picu_start_date = '2009-01-01'
+picu_end_date = '2025-07-31'
+
+picu_adt_2y <- picu %>%
+  filter(as.Date(adt_date) >= as.Date(picu_start_date)) %>%
+  filter(as.Date(adt_date) <= as.Date(picu_end_date)) %>%
+  filter(adt_type_concept_id %in% c(2000000083L, 2000000085L))
+
+picu_adt_2y_pat_ct <- picu_adt_2y %>% distinct(person_id) %>% count() %>% pull()
+
+picu_visit_2y <- picu %>%
+  filter(as.Date(visit_start_date) >= as.Date(picu_start_date)) %>%
+  filter(as.Date(visit_start_date) <= as.Date(picu_end_date))
+
+picu_visit_2y_pat_ct <- picu_visit_2y %>% distinct(person_id) %>% count() %>% pull()
+  
+################################################################################
+#' Find patients aged >0 and <18 at time of PICU admission
+
+picu_adt_under18 <- picu_adt_2y %>%
+  distinct(person_id, birth_date, adt_date) %>%
+  mutate(age = date_diff('day', as.Date(birth_date), as.Date(adt_date))/365.25) %>%
+  filter(age >= 0L) %>%
+  filter(age < 18L)
+
+picu_adt_under18_pat_ct <- picu_adt_under18 %>% distinct(person_id) %>% count() %>% pull()
+
+# picu_visit_under18 <- picu_visit_2y %>%
+#   distinct(person_id, birth_date, visit_start_date) %>%
+#   mutate(age = date_diff('day', as.Date(birth_date), as.Date(visit_start_date))/365.25) %>%
+#   filter(age >= 0L) %>%
+#   filter(age < 18L)
+# 
+# picu_visit_under18_pat_ct <- picu_visit_under18 %>% distinct(person_id) %>% count() %>% pull()
+
+################################################################################
+#' Identify confirmed sepsis: patients with a sepsis condition code
+#' within 7 days of visit_start_date or adt_date
+
+sepsis_codes <- load_codeset('dx_sepsis')
+
+confirmed_sepsis_adt <- get_conds(codeset = sepsis_codes,
+                                  cohort = picu_adt_under18,
+                                  date_type = 'adt_date',
+                                  days_pre_max = 7L,
+                                  days_post_max = 7L) %>%
+  rename(min_picu_date=min_date,
+         max_picu_date=max_date,
+         n_picu_dates=n_dates)
+
+# confirmed_sepsis_visit <- get_conds(codeset = sepsis_codes,
+#                                   cohort = picu_visit_under18,
+#                                   date_type = 'visit_start_date',
+#                                   days_pre_max = 7L,
+#                                   days_post_max = 7L) %>%
+#   rename(min_picu_date=min_date,
+#          max_picu_date=max_date,
+#          n_picu_dates=n_dates)
+
+################################################################################
+#' Identify demographics/race/ethnicity breakdown
+
+#' Look at breaking down age groups by approximate quantile
+age_quantile_adt <- results_tbl('confirmed_sepsis_adt') %>% select(age) %>%
+  mutate(age=as.numeric(age)) %>% collect() %>% pull() %>%
+  quantile(probs=c(0.2, 0.4, 0.6, 0.8))
+
+confirmed_sepsis_adt_demog <- get_demog(cohort=confirmed_sepsis_adt,
+                                        date_type='max_picu_date')
+output_tbl(confirmed_sepsis_adt_demog, 'confirmed_sepsis_adt')
+
+confirmed_sepsis_adt_ct <- results_tbl('confirmed_sepsis_adt') %>% distinct(person_id) %>% count() %>% pull()
+
+confirmed_sepsis_adt_cchmc_colorado_ct <- results_tbl('confirmed_sepsis_adt') %>% filter(site %in% c('cchmc', 'colorado')) %>% distinct(person_id) %>% count() %>% pull()
+
+# confirmed_sepsis_visit_demog <- get_demog(cohort=confirmed_sepsis_visit,
+#                                           date_type='max_picu_date')
+# output_tbl(confirmed_sepsis_visit_demog, 'confirmed_sepsis_visit')
+# 
+# confirmed_sepsis_visit_ct <- results_tbl('confirmed_sepsis_visit') %>% distinct(person_id) %>% count() %>% pull()
+# 
+# confirmed_sepsis_visit_cchmc_colorado_ct <- results_tbl('confirmed_sepsis_visit') %>% filter(site %in% c('cchmc', 'colorado')) %>% distinct(person_id) %>% count() %>% pull()
+
+################################################################################
+#' Summarize demographics
+
+demog_summary_adt <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt'),
+                                   vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+  mutate(variable=case_when(variable=='site' ~ 'Site',
+                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='sex_cat' ~ 'Sex',
+                            variable=='age_group' ~ 'Age Group',
+                            variable=='Total' ~ '1_Total',
+                            TRUE ~ variable)) %>%
+  mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+
+output_tbl(demog_summary_adt, 'demog_summary_sepsis_adt')
+#db_remove_table(db, dbplyr::in_schema(config('results_schema'), 'demog_summary_sepis_adt'))
+
+# demog_summary_visit <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_visit'),
+#                                        vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+#   mutate(variable=case_when(variable=='site' ~ 'Site',
+#                             variable=='raceth_cat' ~ 'Race/Ethnicity',
+#                             variable=='sex_cat' ~ 'Sex',
+#                             variable=='age_group' ~ 'Age Group',
+#                             variable=='Total' ~ '1_Total',
+#                             TRUE ~ variable)) %>%
+#   mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+# 
+# output_tbl(demog_summary_visit, 'demog_summary_sepsis_visit')
+
+#' Look at just Cincinnati and Colorado
+demog_summary_adt_cchmc_colorado <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
+                                                        filter(site %in% c('cchmc','colorado')),
+                                       vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+  mutate(variable=case_when(variable=='site' ~ 'Site',
+                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='sex_cat' ~ 'Sex',
+                            variable=='age_group' ~ 'Age Group',
+                            variable=='Total' ~ '1_Total',
+                            TRUE ~ variable)) %>%
+  mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+
+output_tbl(demog_summary_adt_cchmc_colorado, 'demog_summary_sepsis_adt_cchmc_colorado')
+
+# demog_summary_visit_cchmc_colorado <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_visit') %>%
+#                                                           filter(site %in% c('cchmc','colorado')),
+#                                          vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+#   mutate(variable=case_when(variable=='site' ~ 'Site',
+#                             variable=='raceth_cat' ~ 'Race/Ethnicity',
+#                             variable=='sex_cat' ~ 'Sex',
+#                             variable=='age_group' ~ 'Age Group',
+#                             variable=='Total' ~ '1_Total',
+#                             TRUE ~ variable)) %>%
+#   mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+# 
+# output_tbl(demog_summary_visit_cchmc_colorado, 'demog_summary_sepsis_visit_cchmc_colorado')
+
+################################################################################
+################################################################################
+################################################################################
+#' More complete sepsis scores - from Mitch's code
+#' Information from gist sorrano query is in db07 > studies > schema v52_gist_sorrano
+#' Note that original query uses table versions from a mini CDM (like drug_exposure, condition_occurrence)
+
+# px_blood_culture <- load_codeset("px_blood_culture")
+# lab_blood_culture <- load_codeset("lab_blood_culture")
+# iv_fluids <- load_codeset("iv_fluids")
+# 
+# med_broad_spec_abx <- read_csv("specs/med_broad_spec_abx.csv")
+# output_tbl(med_broad_spec_abx, 'med_broad_spec_abx', .chunk_size=1000)
+
+px_blood_culture_codes <- results_tbl('px_blood_culture')
+lab_blood_culture_codes <- results_tbl('lab_blood_culture')
+iv_fluids_codes <- results_tbl('iv_fluids')
+med_broad_spec_abx_codes <- results_tbl('med_broad_spec_abx')
+
+################################################################################
+#' Identify ED visits linked to inpatient visits (might remove this step)
+
+#' visit_tbl <- cdm_tbl("visit_occurrence")
+#' 
+#' ED_visits <-
+#'   visit_tbl %>%
+#'   filter(visit_concept_id %in% c(9203L, 2000000048L)) %>%
+#'   distinct(
+#'     person_id,
+#'     visit_occurrence_id,
+#'     visit_start_date,
+#'     visit_start_datetime,
+#'     visit_concept_id,
+#'     visit_concept_name,
+#'     visit_start_age_in_months,
+#'     site)
+#' 
+#' inpatient_visits <-
+#'   visit_tbl %>%
+#'   filter(visit_concept_id %in% c(9201L, 2000000048L, 2000000088L)) %>%
+#'   distinct(
+#'     person_id,
+#'     visit_occurrence_id,
+#'     visit_start_date,
+#'     visit_start_datetime,
+#'     visit_concept_id,
+#'     visit_concept_name,
+#'     visit_start_age_in_months,
+#'     site,
+#'     preceding_visit_occurrence_id)
+#' 
+#' 
+#' linkthru_fact <-
+#'   ED_visits %>%
+#'   inner_join(cdm_tbl("fact_relationship"),
+#'              by = c("visit_occurrence_id" = "fact_id_1")
+#'   ) %>%
+#'   #  filter(domain_concept_id_1 == 8 & domain_concept_id_2 == 8) %>%
+#'   inner_join(inpatient_visits,
+#'              by = c("fact_id_2" = "visit_occurrence_id", "person_id")
+#'   ) %>%
+#'   distinct(
+#'     person_id,
+#'     visit_occurrence_id,
+#'     visit_start_date = visit_start_date.x,
+#'     visit_start_datetime = visit_start_datetime.x,
+#'     visit_concept_id = visit_concept_id.x,
+#'     visit_concept_name = visit_concept_name.x,
+#'     visit_start_age_in_months = visit_start_age_in_months.x,
+#'     site = site.x
+#'   )
+#' 
+#' joined_visits <-
+#'   inpatient_visits %>%
+#'   inner_join(
+#'     ED_visits,
+#'     by = c("preceding_visit_occurrence_id" = "visit_occurrence_id", "person_id"),
+#'     suffix = c("_inpat", "_ED")
+#'   ) %>%
+#'   distinct(
+#'     person_id,
+#'     visit_occurrence_id,
+#'     visit_start_date = visit_start_date_ED,
+#'     visit_start_datetime = visit_start_datetime_ED,
+#'     visit_concept_id = visit_concept_id_ED,
+#'     visit_concept_name = visit_concept_name_ED,
+#'     visit_start_age_in_months = visit_start_age_in_months_ED,
+#'     site = site_ED)
+#' 
+#' ER_linked_to_inpatient <-
+#'   visit_tbl %>%
+#'   filter(visit_concept_id == 2000000048L &
+#'            #visit_start_date >= as.Date("2015-01-01")) %>%
+#'            visit_start_date >= as.Date("2009-01-01")) %>%
+#'   distinct(
+#'     person_id,
+#'     visit_occurrence_id,
+#'     visit_start_date,
+#'     visit_start_datetime,
+#'     visit_concept_id,
+#'     visit_concept_name,
+#'     visit_start_age_in_months,
+#'     site
+#'   ) %>% collect() %>%
+#'   dplyr::union(linkthru_fact %>% collect()) %>%
+#'   dplyr::union(joined_visits %>% collect())
+#' 
+#' output_tbl(ER_linked_to_inpatient, 'er_linked_to_inpatient', .chunk_size=1000)
+#' 
+#' ################################################################################
+#' #ER_linked_to_inpatient <- results_tbl('er_linked_to_inpatient_2015')
+#' #db_remove_table(db, dbplyr::in_schema(config('results_schema'), 'er_linked_to_inpatient_2015'))
+#' 
+#' ER_linked_to_inpatient <- results_tbl('er_linked_to_inpatient')
+#' 
+#' ER_linked_to_inpatient_ct <- results_tbl('er_linked_to_inpatient') %>% distinct(person_id) %>% count() %>% pull()
+#' 
+#' px_tbl <- ER_linked_to_inpatient %>%
+#'   distinct(person_id, visit_start_datetime)
+#' 
+#' ################################################################################
+#' #' Look for blood culture labs and measurements, antibiotics and IV fluids
+#' 
+#' blood_proc <-
+#'   px_tbl %>%
+#'   inner_join(cdm_tbl("procedure_occurrence")) %>%
+#'   filter(as_datetime(procedure_datetime) >= as_datetime(visit_start_datetime)) %>%
+#'   inner_join(px_blood_culture_codes,
+#'              by = c("procedure_concept_id" = "concept_id")
+#'   ) %>%
+#'   dplyr::select(visit_occurrence_id, culture_datetime = procedure_datetime)
+#' 
+#' blood_labs <-
+#'   px_tbl %>%
+#'   inner_join(cdm_tbl("measurement_labs")) %>%
+#'   filter(as_datetime(measurement_datetime) >= as_datetime(visit_start_datetime)) %>%
+#'   inner_join(lab_blood_culture_codes,
+#'              by = c("measurement_concept_id" = "concept_id")
+#'   ) %>%
+#'   dplyr::select(visit_occurrence_id, culture_datetime = measurement_datetime)
+#' 
+#' gets_blood_culture_in_ed <-
+#'   blood_labs %>%
+#'   full_join(blood_proc, by=c('visit_occurrence_id','culture_datetime')) %>%
+#'   inner_join(ER_linked_to_inpatient %>% dplyr::select(person_id, visit_occurrence_id, CED2 = visit_start_datetime, visit_concept_id)) %>%
+#'   mutate(tst_time = date_diff('second', as_datetime(CED2), as_datetime(culture_datetime))) %>%
+#'   filter((visit_concept_id == 9203L | visit_concept_id == 2000000048L) |
+#'            ((tst_time >= 0) & tst_time <= 14400)) %>%
+#'   distinct(
+#'     person_id,
+#'     visit_occurrence_id,
+#'     culture_datetime,
+#'     tst_time,
+#'     visit_concept_id)
+#' 
+#' gets_abx_inj_in_ed <-
+#'   cdm_tbl("drug_exposure") %>%
+#'   inner_join(med_broad_spec_abx_codes, by = c("drug_concept_id" = "concept_id")) %>%
+#'   inner_join(ER_linked_to_inpatient %>% dplyr::select(person_id, visit_occurrence_id, CED2 = visit_start_datetime, visit_concept_id)) %>%
+#'   mutate(tst_time = date_diff('second', as_datetime(CED2), as_datetime(drug_exposure_start_datetime))) %>%
+#'   distinct(
+#'     person_id,
+#'     visit_occurrence_id,
+#'     drug_exposure_start_datetime,
+#'     tst_time,
+#'     visit_concept_id)
+#' 
+#' gets_iv_fluids <-
+#'   cdm_tbl("drug_exposure") %>% #dplyr::select(-fluid, -category) %>%
+#'   inner_join(iv_fluids_codes, by = c("drug_concept_id" = "concept_id")) %>%
+#'   inner_join(ER_linked_to_inpatient %>% dplyr::select(person_id, visit_occurrence_id, CED2 = visit_start_datetime, visit_concept_id)) %>%
+#'   mutate(tst_time = date_diff('second', as_datetime(CED2), as_datetime(drug_exposure_start_datetime))) %>%
+#'   #filter((tst_time >= 0) & tst_time <= 14400) %>%
+#'   distinct(
+#'     person_id,
+#'     visit_occurrence_id,
+#'     drug_exposure_start_datetime,
+#'     tst_time,
+#'     visit_concept_id,
+#'     fluid,
+#'     category
+#'     )
+#' 
+#' sepsis_cohort <-
+#'   gets_iv_fluids %>%
+#'   inner_join(gets_abx_inj_in_ed %>% distinct(person_id, visit_occurrence_id)) %>%
+#'   inner_join(gets_blood_culture_in_ed %>% distinct(person_id, visit_occurrence_id)) %>%
+#'   distinct()
+#' 
+#' sepsis_cohort_final <- sepsis_cohort %>%
+#'   inner_join(visit_tbl %>% dplyr::select(visit_occurrence_id, first_sepsis_visit_date = visit_start_date))
+#' 
+#' suspected_sepsis_pats <- sepsis_cohort_final %>%
+#'   left_join(cdm_tbl('person') %>% select(person_id, birth_date), by=c('person_id')) %>%
+#'   mutate(age = date_diff('day', as.Date(birth_date), as.Date(first_sepsis_visit_date))/365.25) %>%
+#'   filter(age >= 0L) %>%
+#'   filter(age < 18L) %>%
+#'   group_by(person_id) %>%
+#'   summarise(max_sepsis_date=max(as.Date(first_sepsis_visit_date))) %>%
+#'   ungroup()
+#' 
+#' suspected_sepsis_demog <- get_demog(cohort=suspected_sepsis_pats,
+#'                                    date_type='max_sepsis_date')
+#' 
+#' output_tbl(suspected_sepsis_demog, 'suspected_sepsis')
+
+#' ################################################################################
+#' #' Get demographics for suspected sepsis based on ED/IP visits
+#' 
+#' demog_summary_suspected_sepsis <- get_demog_summary(cohort=results_tbl('suspected_sepsis'),
+#'                                        vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+#'   mutate(variable=case_when(variable=='site' ~ 'Site',
+#'                             variable=='raceth_cat' ~ 'Race/Ethnicity',
+#'                             variable=='sex_cat' ~ 'Sex',
+#'                             variable=='age_group' ~ 'Age Group',
+#'                             variable=='Total' ~ '1_Total',
+#'                             TRUE ~ variable)) %>%
+#'   mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+#' 
+#' output_tbl(demog_summary_suspected_sepsis, 'demog_summary_suspected_sepsis')
+#' 
+#' 
+#' demog_summary_suspected_sepsis_cchmc_colorado <- get_demog_summary(cohort=results_tbl('suspected_sepsis') %>%
+#'                                                                      filter(site %in% c('cchmc', 'colorado')),
+#'                                                                   vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+#'   mutate(variable=case_when(variable=='site' ~ 'Site',
+#'                             variable=='raceth_cat' ~ 'Race/Ethnicity',
+#'                             variable=='sex_cat' ~ 'Sex',
+#'                             variable=='age_group' ~ 'Age Group',
+#'                             variable=='Total' ~ '1_Total',
+#'                             TRUE ~ variable)) %>%
+#'   mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+#' 
+#' output_tbl(demog_summary_suspected_sepsis_cchmc_colorado, 'demog_summary_suspected_sepsis_cchmc_colorado')
+#' 
+#' 
+#' suspected_sepsis_ed_ip_ct <- results_tbl('suspected_sepsis') %>% distinct(person_id) %>% count() %>% pull()
+#' 
+#' suspected_sepsis_ed_ip_cchmc_colorado_ct <- results_tbl('suspected_sepsis') %>% filter(site %in% c('cchmc', 'colorado')) %>% distinct(person_id) %>% count() %>% pull()
+
+################################################################################
+#' Use Mitch's codesets for suspected sepsis, but look within 7 days of picu date
+
+px_blood_culture_codes <- results_tbl('px_blood_culture')
+lab_blood_culture_codes <- results_tbl('lab_blood_culture')
+iv_fluids_codes <- results_tbl('iv_fluids')
+med_broad_spec_abx_codes <- results_tbl('med_broad_spec_abx')
+
+suspected_sepsis_adt <- get_suspected_sepsis(cohort = picu_adt_under18,
+                                            date_type = 'adt_date',
+                                            days_pre_max = 7L,
+                                            days_post_max = 7L,
+                                            px_blood_culture_codes = results_tbl('px_blood_culture'),
+                                            lab_blood_culture_codes = results_tbl('lab_blood_culture'),
+                                            iv_fluids_codes = results_tbl('iv_fluids'),
+                                            med_broad_spec_abx_codes = results_tbl('med_broad_spec_abx')) %>%
+  rename(min_picu_date=min_date,
+         max_picu_date=max_date,
+         n_picu_dates=n_dates)
+
+
+# suspected_sepsis_visit <- get_suspected_sepsis(cohort = picu_visit_under18,
+#                                              date_type = 'visit_start_date',
+#                                              days_pre_max = 7L,
+#                                              days_post_max = 7L,
+#                                              px_blood_culture_codes = results_tbl('px_blood_culture'),
+#                                              lab_blood_culture_codes = results_tbl('lab_blood_culture'),
+#                                              iv_fluids_codes = results_tbl('iv_fluids'),
+#                                              med_broad_spec_abx_codes = results_tbl('med_broad_spec_abx')) %>%
+#   rename(min_picu_date=min_date,
+#          max_picu_date=max_date,
+#          n_picu_dates=n_dates)
+
+################################################################################
+#' Identify demographics/race/ethnicity breakdown
+
+suspected_sepsis_adt_demog <- get_demog(cohort=suspected_sepsis_adt,
+                                        date_type='max_picu_date')
+output_tbl(suspected_sepsis_adt_demog, 'suspected_sepsis_adt')
+
+suspected_sepsis_adt_ct <- results_tbl('suspected_sepsis_adt') %>% distinct(person_id) %>% count() %>% pull()
+
+suspected_sepsis_adt_cchmc_colorado_ct <- results_tbl('suspected_sepsis_adt') %>% filter(site %in% c('cchmc', 'colorado')) %>% distinct(person_id) %>% count() %>% pull()
+
+# suspected_sepsis_visit_demog <- get_demog(cohort=suspected_sepsis_visit,
+#                                           date_type='max_picu_date')
+# output_tbl(suspected_sepsis_visit_demog, 'suspected_sepsis_visit')
+# 
+# suspected_sepsis_visit_ct <- results_tbl('suspected_sepsis_visit') %>% distinct(person_id) %>% count() %>% pull()
+# 
+# suspected_sepsis_visit_cchmc_colorado_ct <- results_tbl('suspected_sepsis_visit') %>% filter(site %in% c('cchmc', 'colorado')) %>% distinct(person_id) %>% count() %>% pull()
+
+################################################################################
+#' Summarize demographics
+
+demog_summary_suspected_adt <- get_demog_summary(cohort=results_tbl('suspected_sepsis_adt'),
+                                       vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+  mutate(variable=case_when(variable=='site' ~ 'Site',
+                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='sex_cat' ~ 'Sex',
+                            variable=='age_group' ~ 'Age Group',
+                            variable=='Total' ~ '1_Total',
+                            TRUE ~ variable)) %>%
+  mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+
+output_tbl(demog_summary_suspected_adt, 'demog_summary_suspected_sepsis_adt')
+#db_remove_table(db, dbplyr::in_schema(config('results_schema'), 'demog_summary_sepis_adt'))
+
+# demog_summary_suspected_visit <- get_demog_summary(cohort=results_tbl('suspected_sepsis_visit'),
+#                                          vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+#   mutate(variable=case_when(variable=='site' ~ 'Site',
+#                             variable=='raceth_cat' ~ 'Race/Ethnicity',
+#                             variable=='sex_cat' ~ 'Sex',
+#                             variable=='age_group' ~ 'Age Group',
+#                             variable=='Total' ~ '1_Total',
+#                             TRUE ~ variable)) %>%
+#   mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+# 
+# output_tbl(demog_summary_suspected_visit, 'demog_summary_suspected_sepsis_visit')
+
+#' Look at just Cincinnati and Colorado
+demog_summary_suspected_adt_cchmc_colorado <- get_demog_summary(cohort=results_tbl('suspected_sepsis_adt') %>%
+                                                        filter(site %in% c('cchmc','colorado')),
+                                                      vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+  mutate(variable=case_when(variable=='site' ~ 'Site',
+                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='sex_cat' ~ 'Sex',
+                            variable=='age_group' ~ 'Age Group',
+                            variable=='Total' ~ '1_Total',
+                            TRUE ~ variable)) %>%
+  mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+
+output_tbl(demog_summary_suspected_adt_cchmc_colorado, 'demog_summary_suspected_sepsis_adt_cchmc_colorado')
+
+# demog_summary_suspected_visit_cchmc_colorado <- get_demog_summary(cohort=results_tbl('suspected_sepsis_visit') %>%
+#                                                           filter(site %in% c('cchmc','colorado')),
+#                                                         vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+#   mutate(variable=case_when(variable=='site' ~ 'Site',
+#                             variable=='raceth_cat' ~ 'Race/Ethnicity',
+#                             variable=='sex_cat' ~ 'Sex',
+#                             variable=='age_group' ~ 'Age Group',
+#                             variable=='Total' ~ '1_Total',
+#                             TRUE ~ variable)) %>%
+#   mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+# 
+# output_tbl(demog_summary_suspected_visit_cchmc_colorado, 'demog_summary_suspected_sepsis_visit_cchmc_colorado')
+
+################################################################################
+#' Make attrition table
+
+attrition_tbl <- get_attrition_tbl(all_pat_ct=all_pat_ct,
+                                   picu_ct=picu_ct,
+                                   picu_adt_2y_pat_ct=picu_adt_2y_pat_ct,
+                                   picu_visit_2y_pat_ct=picu_visit_2y_pat_ct,
+                                   picu_adt_under18_pat_ct=picu_adt_under18_pat_ct,
+                                   picu_visit_under18_pat_ct=picu_visit_under18_pat_ct,
+                                   confirmed_sepsis_adt_ct=confirmed_sepsis_adt_ct,
+                                   confirmed_sepsis_visit_ct=confirmed_sepsis_visit_ct,
+                                   suspected_sepsis_adt_ct=suspected_sepsis_adt_ct,
+                                   suspected_sepsis_visit_ct=suspected_sepsis_visit_ct,
+                                   confirmed_sepsis_adt_cchmc_colorado_ct=confirmed_sepsis_adt_cchmc_colorado_ct,
+                                   confirmed_sepsis_visit_cchmc_colorado_ct=confirmed_sepsis_visit_cchmc_colorado_ct,
+                                   suspected_sepsis_adt_cchmc_colorado_ct=suspected_sepsis_adt_cchmc_colorado_ct,
+                                   suspected_sepsis_visit_cchmc_colorado_ct=suspected_sepsis_visit_cchmc_colorado_ct,
+                                   ER_linked_to_inpatient_ct=ER_linked_to_inpatient_ct,
+                                   suspected_sepsis_ed_ip_ct=suspected_sepsis_ed_ip_ct,
+                                   suspected_sepsis_ed_ip_cchmc_colorado_ct=suspected_sepsis_ed_ip_cchmc_colorado_ct
+                                   )
+
+output_tbl(attrition_tbl, 'attrition')
+
+################################################################################
+#' Specify "confirmed sepsis" as suspsected sepsis + sepsis condition code
+
+demog_summary_adt_2level <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
+                                         inner_join(results_tbl('suspected_sepsis_adt') %>% distinct(person_id),
+                                                    by=c('person_id')),
+                                       vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+  mutate(variable=case_when(variable=='site' ~ 'Site',
+                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='sex_cat' ~ 'Sex',
+                            variable=='age_group' ~ 'Age Group',
+                            variable=='Total' ~ '1_Total',
+                            TRUE ~ variable)) %>%
+  mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+
+output_tbl(demog_summary_adt_2level, 'demog_summary_sepsis_adt_2level')
+
+#' Look at just Cincinnati and Colorado
+demog_summary_adt_cchmc_colorado_2level <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
+                                                        inner_join(results_tbl('suspected_sepsis_adt') %>% distinct(person_id),
+                                                                   by=c('person_id')) %>%
+                                                        filter(site %in% c('cchmc','colorado')),
+                                                      vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+  mutate(variable=case_when(variable=='site' ~ 'Site',
+                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='sex_cat' ~ 'Sex',
+                            variable=='age_group' ~ 'Age Group',
+                            variable=='Total' ~ '1_Total',
+                            TRUE ~ variable)) %>%
+  mutate(n_pct = paste0(n_patients, ' (', percent_of_total, ')'))
+
+output_tbl(demog_summary_adt_cchmc_colorado_2level, 'demog_summary_sepsis_adt_cchmc_colorado_2level')
+
+
+confirmed_sepsis_adt_2level <- results_tbl('confirmed_sepsis_adt') %>%
+  inner_join(results_tbl('suspected_sepsis_adt'), by=c('person_id')) %>% distinct(person_id)
+
+confirmed_sepsis_adt_ct <- confirmed_sepsis_adt_2level %>% count() %>% pull()
+confirmed_sepsis_adt_cchmc_colorado_ct <- confirmed_sepsis_adt_2level %>% add_site() %>%
+  filter(site %in% c('cchmc', 'colorado')) %>% count() %>% pull()
+
+attrition_tbl2 <- get_attrition_tbl2(all_pat_ct=all_pat_ct,
+                                     picu_ct=picu_ct,
+                                     picu_adt_2y_pat_ct=picu_adt_2y_pat_ct,
+                                     picu_adt_under18_pat_ct=picu_adt_under18_pat_ct,
+                                     suspected_sepsis_adt_ct=suspected_sepsis_adt_ct,
+                                     confirmed_sepsis_adt_ct=confirmed_sepsis_adt_ct,
+                                     suspected_sepsis_adt_cchmc_colorado_ct=suspected_sepsis_adt_cchmc_colorado_ct,
+                                     confirmed_sepsis_adt_cchmc_colorado_ct=confirmed_sepsis_adt_cchmc_colorado_ct
+)
+
+output_tbl(attrition_tbl2, 'attrition2')
+
+################################################################################
+
+#' icu_admits <- get_icu_admits(start = as.Date('2009-01-01'),
+#'                              end = as.Date('2025-07-31'),
+#'                              icus = c(2000000078L),
+#'                              events = c(2000000083L, 2000000085L))
+#' 
+#' visit_tbl <- icu_admits %>%
+#'   distinct(visit_occurrence_id) %>%
+#'   left_join(cdm_tbl('visit_occurrence'), by=c('visit_occurrence_id'))
+#' 
+#' #' Note: I think this can only currently be used for patients who have a single
+#' #' ICU episode recorded-- they can't have multiple episodes in the timeframe
+#' icu_episodes <- build_episodes(adt_occurrence = icu_admits,
+#'                                visit_occurrence = visit_tbl,
+#'                                start_types = c(2000000083L, 2000000085L),
+#'                                end_types = c(2000000084L, 2000000086L),
+#'                                ignore_types=c(2000000087L),
+#'                                max_gap = dhours(12))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -93,7 +93,7 @@ set_argos_default(iceberg_session_v59)
 ################################################################################
 
 
-attrition_tbl <- results_tbl('attrition') %>% collect()
+attrition_tbl <- results_tbl('attrition2') %>% collect()
 
 sepsis_adt <- results_tbl('confirmed_sepsis_adt') %>%
   mutate(age=as.numeric(age)) %>% collect()
@@ -172,9 +172,14 @@ redistribute beyond PEDSnet staff and the requester.**
 
 ### Patient Attrition (All Sites)
 
-* Confirmed sepsis is identified via sepsis condition codes.
-* Suspected sepsis is identified via the following components:
-  * 1. Blood culture measurement labs or procedures AND
+* **Timeframe:** Identified visits from 1/1/2009 - 7/31/2025.
+* **Age:** Identified patients aged 0 to <18 as of their cohort inclusion visit.
+* Cohort inclusion visit:
+  * **PICU:** Identified PICU visits via the adt_occurrence table, using service_concept_id 2000000078. (See attrition table steps 2A-6D.)
+  * **ED/IP:** Identified ED visits linked to IP visits. (See attrition table steps 2X-4X.)
+* **Confirmed sepsis** is identified via sepsis condition codes.
+* **Suspected sepsis** is identified via the following components:
+  * 1. Blood culture measurement labs or blood culture procedures AND
   * 2. Broad spectrum antibiotics AND
   * 3. IV fluids
 

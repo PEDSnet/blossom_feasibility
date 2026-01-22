@@ -1,0 +1,179 @@
+---
+title: "BLOSSOM Feasibility Query: Sepsis Cohort Definitions"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 6
+    toc_collapsed: no
+    toc_float: no
+---
+
+```{r setup, include=FALSE}
+# # Default taken from R notebook behavior: when knitting, wd will always be location of notebook
+# base_dir <- '..'
+# Sys.setenv(PEDSNET_SKIP_REQUEST_EXECUTION=1)
+# tryCatch(source('../site/run.R'),
+#          error = function (e) message(e)) # May not be able to make db connection
+# 
+# # Set to "local" to read data from ../results, or another value to read from db
+# data_source <- if_else(config('execution_mode') == 'distribution', 'local', 'not_local')
+
+##############################################################
+library(argos)
+library(srcr)
+library(stringr)
+library(DBI)
+library(purrr)
+library(tibble) #' includes the view function
+
+##############################################################
+
+require(tidyr)
+require(knitr)
+require(kableExtra)
+require(stringr)
+require(tibble)
+require(ggplot2)
+require(gtsummary)
+require(tidyverse)
+require(reactable)
+require(squba)
+require(ggiraph)
+require(UpSetR)
+require(grid)
+require(ggiraph)
+
+get_results <- function(tbl_name) {
+  if (data_source == 'local') {
+    rslt <- read_csv(paste0('../results/', tbl_name, '.csv'))
+  }
+  else {
+    rslt <- results_tbl(tbl_name) %>% collect()
+  }
+rslt
+}
+
+prettify_kable <- function(data) {
+  rslt <- data %>% kable(digits = 2, format.args = list(big.mark = ','))
+  if (knitr::is_html_output()) rslt <- rslt %>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+    column_spec(1, bold = F, border_right = T)
+  rslt
+}
+
+prettify_kable2 <- function(data) {
+  rslt <- data %>% kable(digits = 2, format.args = list(big.mark = ','))
+  if (knitr::is_html_output()) rslt <- rslt %>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+      scroll_box(width = "800px", height = "600px")
+  rslt
+}
+
+################################################################################
+
+source('/Users/hirabayask/Documents/Repos/github/blossom_feasibility/code/funs.R')
+source('/Users/hirabayask/Documents/Repos/github/blossom_feasibility/setup/argos_wrapper.R')
+source('/Users/hirabayask/.srcr/set_httr_config.R')
+
+iceberg_session_v59 <- initialize_session(session_name = 'idd_iceberg',
+                                          db_conn = srcr('trino_v59_iceberg'),
+                                          is_json = FALSE,
+                                          cdm_schema = 'pedsnet_dcc_v59', ## replace with location of CDM data
+                                          results_schema = 'blossom_feasibility',
+                                          retain_intermediates = TRUE,
+                                          db_trace = TRUE, ## set to TRUE for SQL code to print to the console (like verbose)
+                                          vocabulary_schema = 'v59_vocabulary',
+                                          results_tag = '')
+
+
+set_argos_default(iceberg_session_v59)
+
+################################################################################
+
+attrition_tbl <- results_tbl('attrition2') %>% collect() %>%
+  rename(Description=descriptions,
+         `Patient Count`=counts)
+
+sepsis_adt <- results_tbl('confirmed_sepsis_adt') %>%
+  mutate(age=as.numeric(age)) %>% collect()
+
+#' Try combining demographics together onto one table
+demog_summary_suspected_adt <- results_tbl('demog_summary_suspected_sepsis_adt') %>%
+  select(variable, category, n_pct) %>% rename(`Suspected Sepsis N (Col %)`=n_pct) %>%
+  filter(!variable %in% c('Site'))
+
+demog_summary_adt <- results_tbl('demog_summary_sepsis_adt_2level') %>%
+  select(variable, category, n_pct) %>% rename(`Confirmed Sepsis N (Col %)`=n_pct) %>%
+  filter(!variable %in% c('Site'))
+
+demog_summary_suspected_adt_cchmc_colorado <- results_tbl('demog_summary_suspected_sepsis_adt_cchmc_colorado') %>%
+  select(variable, category, n_pct) %>% rename(`Suspected Sepsis N (Col %)`=n_pct) %>%
+  filter(!variable %in% c('Site'))
+
+demog_summary_adt_cchmc_colorado <- results_tbl('demog_summary_sepsis_adt_cchmc_colorado_2level') %>%
+  select(variable, category, n_pct) %>% rename(`Confirmed Sepsis N (Col %)`=n_pct) %>%
+  filter(!variable %in% c('Site'))
+
+demog_summary_all <- demog_summary_suspected_adt %>%
+  left_join(demog_summary_adt, by=c('variable', 'category')) %>%
+  collect() %>%
+  arrange(variable, category) %>%
+  mutate(variable = case_when(variable=='1_Total' ~ 'Total',
+                              TRUE ~ variable))
+
+demog_summary_cchmc_colorado <- demog_summary_suspected_adt_cchmc_colorado %>%
+  left_join(demog_summary_adt_cchmc_colorado, by=c('variable', 'category')) %>%
+  collect() %>%
+  arrange(variable, category) %>%
+  mutate(variable = case_when(variable=='1_Total' ~ 'Total',
+                              TRUE ~ variable))
+
+```
+
+### Confidentiality
+
+**Please treat the contents of this report as confidential, and do not
+redistribute beyond PEDSnet staff and the requester.**
+
+### Notes and Data Source
+* **Data Source:** PEDSnet database v59; data available through 7/31/2025
+* **Sites:** Sites include: CCHMC, CHOP, Colorado, Lurie, National, Nationwide, Nemours, Seattle, Stanford and Texas
+  * Data from Indiana is not included.
+* **Timeframe:** Identified visits from 1/1/2009 - 7/31/2025.
+* **Age:** Identified patients aged 0 to <18 at PICU visit.
+<!-- * **PICU visit:** Identified via the adt_occurrence table (service_concept_id: 2000000078), specifying admissions (2000000083) or transfers in (2000000085) -->
+* **PICU visit:** A PICU visit in the timeframe (admission or transfer in)
+* **Suspected sepsis** is identified via the following components occurring within 7 days before or after the PICU entry date:
+  * 1. Blood culture measurement labs or blood culture procedures AND
+  * 2. Broad-spectrum antibiotics AND
+  * 3. IV fluids
+* **Confirmed sepsis** is identified via the following components:
+  * 1. Suspected sepsis, as defined above, AND
+  * 2. A sepsis condition code occurring within 7 days before or after the PICU entry date
+* **Broad-spectrum antibiotics** include the following categories: vancomycin, ceftazidime, cefotaxime, ceftriaxone, ciprofloxacin, ertapenem, imipenem, meropenem, levofloxacin, ceftaroline, aztreonam, cefepime, linezolid, daptomycin, piperacillin-tazobactam
+* **IV fluids** include the following fluids/categories: Ringer (balanced), Hartmann (balanced), plasmalyte (balanced), saline
+
+### Patient Attrition
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+attrition_tbl %>% reactable(defaultPageSize=17)
+```
+
+### Demographics: All Sites
+   
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+demog_summary_all %>% reactable(defaultPageSize=24)
+
+```
+
+### Demographics: CCHMC and Colorado only
+   
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+demog_summary_cchmc_colorado %>% reactable(defaultPageSize=24)
+
+```
+
