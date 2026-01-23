@@ -130,7 +130,7 @@ demog_summary_cchmc_colorado <- demog_summary_suspected_adt_cchmc_colorado %>%
   mutate(variable = case_when(variable=='1_Total' ~ 'Total',
                               TRUE ~ variable))
 
-phoenix8_notes <- results_tbl('phoenix8_notes') %>% collect()
+#phoenix8_notes <- results_tbl('phoenix8_notes') %>% collect()
 
 ```
 
@@ -179,10 +179,10 @@ demog_summary_cchmc_colorado %>% reactable(defaultPageSize=24)
 
 ```
 
-### Phoenix-8 Sepsis Score Components: Initial Notes on Data Availability
+<!-- ### Phoenix-8 Sepsis Score Components: Initial Notes on Data Availability -->
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE} -->
 
-phoenix8_notes %>% reactable(defaultPageSize=18)
+<!-- phoenix8_notes %>% reactable(defaultPageSize=18) -->
 
-```
+<!-- ``` -->
