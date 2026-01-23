@@ -130,6 +130,8 @@ demog_summary_cchmc_colorado <- demog_summary_suspected_adt_cchmc_colorado %>%
   mutate(variable = case_when(variable=='1_Total' ~ 'Total',
                               TRUE ~ variable))
 
+phoenix8_notes <- results_tbl('phoenix8_notes') %>% collect()
+
 ```
 
 ### Confidentiality
@@ -146,7 +148,7 @@ redistribute beyond PEDSnet staff and the requester.**
 <!-- * **PICU visit:** Identified via the adt_occurrence table (service_concept_id: 2000000078), specifying admissions (2000000083) or transfers in (2000000085) -->
 * **PICU visit:** A PICU visit in the timeframe (admission or transfer in)
 * **Suspected sepsis** is identified via the following components occurring within 7 days before or after the PICU entry date:
-  * 1. Blood culture measurement labs or blood culture procedures AND
+  * 1. Blood culture labs or blood culture procedures AND
   * 2. Broad-spectrum antibiotics AND
   * 3. IV fluids
 * **Confirmed sepsis** is identified via the following components:
@@ -177,3 +179,10 @@ demog_summary_cchmc_colorado %>% reactable(defaultPageSize=24)
 
 ```
 
+### Phoenix-8 Sepsis Score Components: Initial Notes on Data Availability
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+phoenix8_notes %>% reactable(defaultPageSize=18)
+
+```

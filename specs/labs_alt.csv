@@ -1,0 +1,24 @@
+concept_id,concept_name,concept_code,vocabulary_id
+1761617,Alanine aminotransferase.macromolecular [Presence] in Serum or Plasma,100738-4,LOINC
+3000784,Alanine aminotransferase [Enzymatic activity/volume] in Body fluid,25302-1,LOINC
+3004056,Alanine aminotransferase [Enzymatic activity/volume] in Amniotic fluid,1741-8,LOINC
+3005755,Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma by With P-5'-P,1743-4,LOINC
+3006923,Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma,1742-6,LOINC
+3015912,Alanine aminotransferase [Enzymatic activity/volume] in Red Blood Cells,16324-6,LOINC
+3027388,Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5'-P,1744-2,LOINC
+3028946,Alanine aminotransferase [Enzymatic activity/volume] in Dialysis fluid,50168-4,LOINC
+3045928,Alanine aminotransferase [Enzymatic activity/volume] (Maximum value during study) in Serum or Plasma by No addition of P-5'-P,44785-4,LOINC
+3052018,Alanine aminotransferase.macromolecular [Enzymatic activity/volume] in Serum or Plasma,48134-1,LOINC
+4018061,"ALT measurement, method without pyridoxal-5'-phosphate",104482006,SNOMED
+4019440,"ALT measurement, method with pyridoxal-5'-phosphate",104481004,SNOMED
+4095055,ALT - blood measurement,250637003,SNOMED
+4146380,Alanine aminotransferase measurement,34608000,SNOMED
+4190899,Plasma alanine aminotransferase level,390961000,SNOMED
+36032251,Alanine aminotransferase [Enzymatic activity/volume] in DBS,96586-3,LOINC
+40757622,Alanine aminotransferase [Enzymatic activity/volume] in Peritoneal fluid,54491-6,LOINC
+40757623,Alanine aminotransferase [Enzymatic activity/volume] in Pleural fluid,54492-4,LOINC
+44788835,Serum alanine aminotransferase level,201321000000108,SNOMED
+44806062,Aspartate transaminase/alanine transaminase ratio measurement,790541000000108,SNOMED
+44810789,Alanine transaminase activity measurement,889391000000100,SNOMED
+46235106,Alanine aminotransferase [Enzymatic activity/volume] in Blood,76625-3,LOINC
+46236949,"Alanine aminotransferase [Enzymatic activity/volume] in Serum, Plasma or Blood",77144-4,LOINC

@@ -1,0 +1,18 @@
+﻿Phoenix-8 Component Name (17 Elements),Organ System,Phoenix-8 Details,Notes on data availability
+"PaO2/FiO2 ratio, worst = highest",Respiratory,"PaO2/FiO2 ratio, worst OR SpO2/FiO2, worst in 24 hrs; Scoring thresholds factor in respiratory support (see paper)",Part of pSOFA - some code written and DQ conducted on CHOP/Stanford
+"Mechanical ventilation, worst = yes ",Respiratory,"No respiratory support, any respiratory support (oxygen-IMV) or IMV (interpreted with PaO2/FiO2 or SaO2/FiO2)",Codeset generated for previous study; observed counts at all sites
+"Systolic blood pressure, worst = lowest",Cardiovascular,"Mean arterial pressure, worst = lowest in 24 hrs (based on age in table to determine score)",Part of pSOFA - some code written and DQ conducted on CHOP/Stanford
+"Continuous vasoactive infusions, worst = yes*",Cardiovascular,"Number of vasoactive medications: 0, 1, or ≥ 2. Includes any dose of epinephrine, norepinephrine, dopamine, dobutamine,milrinone, and/or vasopressin (for shock)",Part of pSOFA - some code written and DQ conducted on CHOP/Stanford
+"Platelet count, worst = lowest",Coagulation,"Plts ≥ 100 or < 100, worst in 24 hrs",Part of pSOFA - some code written and DQ conducted on CHOP/Stanford
+"International normalized ratio, worst = highest",Coagulation,"INR ≤ 1.3 or > 1.3, worst in 24 hrs","On preliminary review, only observed records at Stanford"
+"D-dimer, worst = highest",Coagulation,"D-dimer ≤ 2 mg/L FEU or > 2 mg/L FEU, worst in 24 hrs",Codeset generated for previous study; observed counts at all sites
+"Glasgow Coma Scale, worst = lowest",Neurologic,"GCS > 10 or ≤ 10, worst in 24 hrs",Part of pSOFA - some code written and DQ conducted on CHOP/Stanford
+"Pupillary exam, worst = fixed and dilated*",Neurologic,"Pupillary exam, worst in 24 hrs; reactive vs. fixed","On preliminary review, observed low counts at 9 of 10 sites (including CCHMC and Colorado)"
+"Total bilirubin, worst = highest",Hepatic,"Bilirubin, score 0-5, worst in 24 hrs",Part of pSOFA - some code written and DQ conducted on CHOP/Stanford
+"Creatinine, worst = highest",Renal,Creatinine by age,Part of pSOFA - some code written and DQ conducted on CHOP/Stanford
+"Serum lactate, worst = highest",Cardiovascular,"Serum lactate, < 5, 5-10.9, or ≥ 11, worst in 24 hrs","On preliminary review, present at all sites in varying numbers"
+"Serum fibrinogen, worst = lowest",Coagulation,"Serum fibrinogen, ≥ 100 or ≤ 100, worst in 24 hrs","On preliminary review, present at all sites in varying numbers"
+Blood glucose,Endocrine,"Blood Glucose, 50-150 or <50 or >150","On preliminary review, present at all sites"
+"Absolute neutrophil count, worst = lowest",Immunologic,ANC > or < 500,Codeset generated for previous study; observed counts at all sites
+"Absolute lymphocyte count, worst = lowest",Immunologic,ALC > or < 1000,"On preliminary review, present at all sites in varying numbers"
+"Alanine aminotransferase blood test, worst = highest",Hepatic,ALT < or > 102,Codeset generated for previous study; observed counts at all sites
