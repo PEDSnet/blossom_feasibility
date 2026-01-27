@@ -92,7 +92,9 @@ picu_adt_under18 <- picu_adt_2y %>%
   distinct(person_id, birth_date, adt_date) %>%
   mutate(age = date_diff('day', as.Date(birth_date), as.Date(adt_date))/365.25) %>%
   filter(age >= 0L) %>%
-  filter(age < 18L)
+  filter(age < 18L) %>%
+  left_join(cdm_tbl('person') %>% select(person_id, gender_concept_id), by=c('person_id')) %>%
+  filter(gender_concept_id %in% c(8507L, 8532L))
 
 picu_adt_under18_pat_ct <- picu_adt_under18 %>% distinct(person_id) %>% count() %>% pull()
 
@@ -114,9 +116,9 @@ confirmed_sepsis_adt <- get_conds(codeset = sepsis_codes,
 #' Identify demographics/race/ethnicity breakdown
 
 #' Look at breaking down age groups by approximate quantile
-age_quantile_adt <- results_tbl('confirmed_sepsis_adt') %>% select(age) %>%
-  mutate(age=as.numeric(age)) %>% collect() %>% pull() %>%
-  quantile(probs=c(0.2, 0.4, 0.6, 0.8))
+# age_quantile_adt <- results_tbl('confirmed_sepsis_adt') %>% select(age) %>%
+#   mutate(age=as.numeric(age)) %>% collect() %>% pull() %>%
+#   quantile(probs=c(0.2, 0.4, 0.6, 0.8))
 
 confirmed_sepsis_adt_demog <- get_demog(cohort=confirmed_sepsis_adt,
                                         date_type='max_picu_date')
@@ -129,7 +131,8 @@ confirmed_sepsis_adt_cchmc_colorado_ct <- results_tbl('confirmed_sepsis_adt') %>
 ################################################################################
 #' Summarize demographics
 
-demog_summary_adt <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt'),
+demog_summary_adt <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
+                                         filter(sex_cat %in% c('Male','Female')),
                                    vars=c('site','raceth_cat','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
                             variable=='raceth_cat' ~ 'Race/Ethnicity',
@@ -144,6 +147,7 @@ output_tbl(demog_summary_adt, 'demog_summary_sepsis_adt')
 
 #' Look at just Cincinnati and Colorado
 demog_summary_adt_cchmc_colorado <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
+                                                        filter(sex_cat %in% c('Male','Female')) %>%
                                                         filter(site %in% c('cchmc','colorado')),
                                        vars=c('site','raceth_cat','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
@@ -183,14 +187,21 @@ suspected_sepsis_adt_demog <- get_demog(cohort=suspected_sepsis_adt,
                                         date_type='max_picu_date')
 output_tbl(suspected_sepsis_adt_demog, 'suspected_sepsis_adt')
 
-suspected_sepsis_adt_ct <- results_tbl('suspected_sepsis_adt') %>% distinct(person_id) %>% count() %>% pull()
+suspected_sepsis_adt_ct <- results_tbl('suspected_sepsis_adt') %>%
+  filter(sex_cat %in% c('Male','Female')) %>%
+  distinct(person_id) %>%
+  count() %>% pull()
 
-suspected_sepsis_adt_cchmc_colorado_ct <- results_tbl('suspected_sepsis_adt') %>% filter(site %in% c('cchmc', 'colorado')) %>% distinct(person_id) %>% count() %>% pull()
+suspected_sepsis_adt_cchmc_colorado_ct <- results_tbl('suspected_sepsis_adt') %>%
+  filter(sex_cat %in% c('Male','Female')) %>%
+  filter(site %in% c('cchmc', 'colorado')) %>%
+  distinct(person_id) %>% count() %>% pull()
 
 ################################################################################
 #' Summarize demographics
 
-demog_summary_suspected_adt <- get_demog_summary(cohort=results_tbl('suspected_sepsis_adt'),
+demog_summary_suspected_adt <- get_demog_summary(cohort=results_tbl('suspected_sepsis_adt') %>%
+                                                   filter(sex_cat %in% c('Male','Female')),
                                        vars=c('site','raceth_cat','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
                             variable=='raceth_cat' ~ 'Race/Ethnicity',
@@ -205,7 +216,8 @@ output_tbl(demog_summary_suspected_adt, 'demog_summary_suspected_sepsis_adt')
 
 #' Look at just Cincinnati and Colorado
 demog_summary_suspected_adt_cchmc_colorado <- get_demog_summary(cohort=results_tbl('suspected_sepsis_adt') %>%
-                                                        filter(site %in% c('cchmc','colorado')),
+                                                                  filter(sex_cat %in% c('Male','Female')) %>%
+                                                                  filter(site %in% c('cchmc','colorado')),
                                                       vars=c('site','raceth_cat','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
                             variable=='raceth_cat' ~ 'Race/Ethnicity',
@@ -222,7 +234,8 @@ output_tbl(demog_summary_suspected_adt_cchmc_colorado, 'demog_summary_suspected_
 
 demog_summary_adt_2level <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
                                          inner_join(results_tbl('suspected_sepsis_adt') %>% distinct(person_id),
-                                                    by=c('person_id')),
+                                                    by=c('person_id')) %>%
+                                           filter(sex_cat %in% c('Male','Female')),
                                        vars=c('site','raceth_cat','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
                             variable=='raceth_cat' ~ 'Race/Ethnicity',
@@ -238,6 +251,7 @@ output_tbl(demog_summary_adt_2level, 'demog_summary_sepsis_adt_2level')
 demog_summary_adt_cchmc_colorado_2level <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
                                                         inner_join(results_tbl('suspected_sepsis_adt') %>% distinct(person_id),
                                                                    by=c('person_id')) %>%
+                                                          filter(sex_cat %in% c('Male','Female')) %>%
                                                         filter(site %in% c('cchmc','colorado')),
                                                       vars=c('site','raceth_cat','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
@@ -252,7 +266,50 @@ output_tbl(demog_summary_adt_cchmc_colorado_2level, 'demog_summary_sepsis_adt_cc
 
 
 confirmed_sepsis_adt_2level <- results_tbl('confirmed_sepsis_adt') %>%
-  inner_join(results_tbl('suspected_sepsis_adt'), by=c('person_id')) %>% distinct(person_id)
+  inner_join(results_tbl('suspected_sepsis_adt') %>% distinct(person_id), by=c('person_id')) %>%
+  filter(sex_cat %in% c('Male','Female')) %>% distinct(person_id)
+
+################################################################################
+#' Get counts of race and ethnicity by male/female: suspected sepsis
+
+suspected_sepsis_raceth_by_sex <- get_raceth_by_sex(cohort = results_tbl('suspected_sepsis_adt'))
+
+output_tbl(suspected_sepsis_raceth_by_sex, 'suspected_sepsis_adt_raceth_sex')
+
+suspected_sepsis_raceth_by_sex_cchmc_colorado <- get_raceth_by_sex(cohort = results_tbl('suspected_sepsis_adt') %>%
+                                                                     filter(site %in% c('cchmc','colorado')))
+
+output_tbl(suspected_sepsis_raceth_by_sex_cchmc_colorado, 'suspected_sepsis_adt_raceth_sex_cchmc_colorado')
+
+################################################################################
+#' Get counts of race and ethnicity by male/female: confirmed sepsis
+
+confirmed_sepsis_raceth_by_sex <- get_raceth_by_sex(cohort = results_tbl('confirmed_sepsis_adt') %>%
+                                                      inner_join(results_tbl('suspected_sepsis_adt') %>% distinct(person_id),
+                                                                 by=c('person_id')))
+
+output_tbl(confirmed_sepsis_raceth_by_sex, 'confirmed_sepsis_adt_raceth_sex')
+
+confirmed_sepsis_raceth_by_sex_cchmc_colorado <- get_raceth_by_sex(cohort = results_tbl('confirmed_sepsis_adt') %>%
+                                                                     inner_join(results_tbl('suspected_sepsis_adt') %>% distinct(person_id),
+                                                                                by=c('person_id')) %>%
+                                                                     filter(site %in% c('cchmc','colorado')))
+
+output_tbl(confirmed_sepsis_raceth_by_sex_cchmc_colorado, 'confirmed_sepsis_adt_raceth_sex_cchmc_colorado')
+
+#' Gather together race/ethnicity and male/female tables: suspected and confirmed sepsis
+sus_raceth_sex <- results_tbl('suspected_sepsis_adt_raceth_sex') %>% mutate(sepsis_type='suspected') %>% mutate(site='All')
+sus_raceth_sex_cchmc_colorado <- results_tbl('suspected_sepsis_adt_raceth_sex_cchmc_colorado') %>% mutate(sepsis_type='suspected') %>% mutate(site='CCHMC and Colorado')
+con_raceth_sex <- results_tbl('confirmed_sepsis_adt_raceth_sex')  %>% mutate(sepsis_type='confirmed') %>% mutate(site='All')
+con_raceth_sex_cchmc_colorado <- results_tbl('confirmed_sepsis_adt_raceth_sex_cchmc_colorado') %>% mutate(sepsis_type='confirmed') %>% mutate(site='CCHMC and Colorado')
+
+all_raceth_sex <- sus_raceth_sex %>%
+  dplyr::union(sus_raceth_sex_cchmc_colorado) %>%
+  dplyr::union(con_raceth_sex) %>%
+  dplyr::union(con_raceth_sex_cchmc_colorado) %>%
+  arrange(sepsis_type, site, race_cat) %>% as_data_frame()
+
+#write_csv(all_raceth_sex, 'specs/all_raceth_sex.csv')
 
 ################################################################################
 #' Make attrition table

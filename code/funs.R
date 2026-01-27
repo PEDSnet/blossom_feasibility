@@ -108,9 +108,9 @@ get_demog <- function(cohort,
     mutate(
       sex_cat=case_when(#gender_concept_id==8507L ~ 'Male',
         gender_concept_id==8532L ~ 'Female',
-        #gender_concept_id==8507L ~ 'Male',
-        #TRUE ~ 'Other/unknown/ambiguous'
-        TRUE ~ 'Male or other/unknown/ambiguous'
+        gender_concept_id==8507L ~ 'Male',
+        TRUE ~ 'Other/unknown/ambiguous'
+        #TRUE ~ 'Male or other/unknown/ambiguous'
         )) %>%
     mutate(
       raceth_cat=case_when(ethnicity_concept_id == 38003563L ~ 'Hispanic',
@@ -120,6 +120,22 @@ get_demog <- function(cohort,
                            ethnicity_concept_id == 38003564L & race_concept_id == 44814659L ~ 'NH_Other_or_Multiple_Race', #NH multiple race
                            ethnicity_concept_id == 38003564L & race_concept_id %in% c(8657L, 8557L, 38003615L) ~ 'NH_Other_or_Multiple_Race', #NH other
                            TRUE ~ 'Other/Unknown')) %>%
+    mutate(eth_cat=case_when(ethnicity_concept_id == 38003563L ~ 'Hispanic',
+                             ethnicity_concept_id == 38003564L ~ 'Not_Hispanic',
+                             ethnicity_concept_id %in% c(44814660L, 44814649L, 44814650L,
+                                                         44814653L) ~ 'Refuse_Other_Unknown',
+                             TRUE ~ 'Other/Unknown'
+    )) %>%
+    mutate(race_cat = case_when(race_concept_id %in% c(8527L, 38003615L) ~ 'White_or_Middle_Eastern_North_African',
+                                race_concept_id == 8516L ~ 'Black',
+                                race_concept_id == 8515L ~ 'Asian',
+                                race_concept_id == 8657L ~ 'American_Indian_Alaska_Native',
+                                race_concept_id == 8557L ~ 'Native_Hawaiian_Other_PI',
+                                #race_concept_id == 38003615L ~ 'Middle_Eastern_North_African',
+                                race_concept_id == 44814659L ~ 'Multiple_Race',
+                                race_concept_id %in% c(44814650L, 44814653L,
+                                                       44814649L, 44814660) ~ 'Unknown_Other_Refuse'
+    )) %>%
     mutate(
       age_group = case_when(age < 1 ~ '<1',
                             age < 5 ~ '01 to 04',
@@ -245,7 +261,7 @@ get_attrition_tbl2 <- function(all_pat_ct=all_pat_ct,
   descriptions <- c('1. All Patients in the PEDSnet CDM: v59',
                     '2. From 1: All patients with a PICU record',
                     '3. From 2: Patients with a PICU record from 01/01/2009 - 7/31/2025',
-                    '4. From 3: Patients aged >=0 and <18',
+                    '4. From 3: Patients aged >=0 and <18 with male or female sex',
                     '5: From 4: Patients with suspected sepsis (blood culture lab/measurement AND broad spectrum antibiotics AND IV fluids within 7 days)',
                     '6. From 5: Patients with confirmed sepsis (suspected sepsis + a sepsis condition code within 7 days)',
                     '5B: From 5: Patients with suspected sepsis -- subset to CCHMC and Colorado',
@@ -451,4 +467,30 @@ get_attrition_tbl2 <- function(all_pat_ct=all_pat_ct,
 #'       })%>%
 #'     ungroup()
 #' }
+
+
+get_raceth_by_sex <- function(cohort = results_tbl('confirmed_sepsis_adt') %>%
+                                filter(site %in% c('cchmc','colorado'))) {
+  
+  raceth_by_sex <- cohort %>%
+    filter(gender_concept_id %in% c(8532L, 8507L)) %>% #'remove patients with ambiguous/other/unknown sex
+    mutate(sex_cat=case_when(gender_concept_id==8532 ~ 'Female',
+                             gender_concept_id==8507 ~ 'Male')) %>%
+    mutate(eth_cat=case_when(ethnicity_concept_id == 38003563L ~ 'Hispanic',
+                             #ethnicity_concept_id == 38003564L ~ 'Not_Hispanic',
+                             #ethnicity_concept_id %in% c(44814660L, 44814649L, 44814650L,
+                             #                             44814653L) ~ 'Refuse_Other_Unknown',
+                             # TRUE ~ 'Other/Unknown'
+                             TRUE ~ 'Not_Hispanic_or_Refuse_Other_Unknown'
+    )) %>%
+    group_by(sex_cat, eth_cat, race_cat) %>%
+    summarise(n=n()) %>%
+    ungroup() %>%
+    collect() %>%
+    pivot_wider(names_from=c('eth_cat','sex_cat'), values_from='n', values_fill=0)
+  
+}
+
+
+
 

@@ -145,6 +145,7 @@ redistribute beyond PEDSnet staff and the requester.**
   * Data from Indiana is not included.
 * **Timeframe:** Identified visits from 1/1/2009 - 7/31/2025.
 * **Age:** Identified patients aged 0 to <18 at PICU visit.
+* **Exclusions:** Excluded patients with unknown, ambiguous or other sex.
 <!-- * **PICU visit:** Identified via the adt_occurrence table (service_concept_id: 2000000078), specifying admissions (2000000083) or transfers in (2000000085) -->
 * **PICU visit:** A PICU visit in the timeframe (admission or transfer in)
 * **Suspected sepsis** is identified via the following components occurring within 7 days before or after the PICU entry date:
