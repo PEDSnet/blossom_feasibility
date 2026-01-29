@@ -114,11 +114,10 @@ get_demog <- function(cohort,
         )) %>%
     mutate(
       raceth_cat=case_when(ethnicity_concept_id == 38003563L ~ 'Hispanic',
-                           ethnicity_concept_id == 38003564L & race_concept_id == 8527L ~ 'NH_White',
+                           ethnicity_concept_id == 38003564L & race_concept_id %in% c(8527L, 38003615L) ~ 'NH_White_or_Middle_Eastern_North_African',
                            ethnicity_concept_id == 38003564L & race_concept_id == 8516L ~ 'NH_Black/AA',
                            ethnicity_concept_id == 38003564L & race_concept_id == 8515L ~ 'NH_Asian',
-                           ethnicity_concept_id == 38003564L & race_concept_id == 44814659L ~ 'NH_Other_or_Multiple_Race', #NH multiple race
-                           ethnicity_concept_id == 38003564L & race_concept_id %in% c(8657L, 8557L, 38003615L) ~ 'NH_Other_or_Multiple_Race', #NH other
+                           ethnicity_concept_id == 38003564L & race_concept_id %in% c(44814659L, 8657L, 8557L) ~ 'NH_Multiple_or_AI_AN_NH_OPI', #NH American Indian/Alaska Native or Native Hawaiian/Other Pacific Islander
                            TRUE ~ 'Other/Unknown')) %>%
     mutate(eth_cat=case_when(ethnicity_concept_id == 38003563L ~ 'Hispanic',
                              ethnicity_concept_id == 38003564L ~ 'Not_Hispanic',
@@ -136,6 +135,19 @@ get_demog <- function(cohort,
                                 race_concept_id %in% c(44814650L, 44814653L,
                                                        44814649L, 44814660) ~ 'Unknown_Other_Refuse'
     )) %>%
+    mutate(eth_cat2=case_when(ethnicity_concept_id == 38003563L ~ 'Hispanic',
+                             #ethnicity_concept_id == 38003564L ~ 'Not_Hispanic',
+                             #ethnicity_concept_id %in% c(44814660L, 44814649L, 44814650L,
+                            #                             44814653L) ~ 'Refuse_Other_Unknown',
+                             TRUE ~ 'Not_Hispanic/Other/Unknown'
+    )) %>%
+    mutate(race_cat2 = case_when(race_concept_id %in% c(8527L, 38003615L) ~ 'White_or_Middle_Eastern_North_African',
+                                race_concept_id == 8516L ~ 'Black_or_African_American',
+                                race_concept_id == 8515L ~ 'Asian',
+                                race_concept_id %in% c(8657L, 8557L, 44814659L) ~ 'Multiple_or_AI_AN_or_NH_OPI',
+                                race_concept_id %in% c(44814650L, 44814653L,
+                                                       44814649L, 44814660) ~ 'Unknown_Other_Refuse'
+    )) %>%
     mutate(
       age_group = case_when(age < 1 ~ '<1',
                             age < 5 ~ '01 to 04',
@@ -147,7 +159,8 @@ get_demog <- function(cohort,
 
 #' Summarize demographics
 get_demog_summary <- function(cohort=results_tbl('confirmed_sepsis_adt'),
-                              vars=c('site','raceth_cat','sex_cat','age_group')) {
+                              vars=c('site','race_cat2','eth_cat2',#'raceth_cat',
+                                     'sex_cat','age_group')) {
   
   demog_list <- list()
   

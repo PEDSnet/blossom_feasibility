@@ -133,9 +133,12 @@ confirmed_sepsis_adt_cchmc_colorado_ct <- results_tbl('confirmed_sepsis_adt') %>
 
 demog_summary_adt <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
                                          filter(sex_cat %in% c('Male','Female')),
-                                   vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+                                   vars=c('site',#'raceth_cat',
+                                          'race_cat2','eth_cat2','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
-                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            #variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='race_cat2' ~ 'Race',
+                            variable=='eth_cat2' ~ 'Ethnicity',
                             variable=='sex_cat' ~ 'Sex',
                             variable=='age_group' ~ 'Age Group',
                             variable=='Total' ~ '1_Total',
@@ -149,9 +152,12 @@ output_tbl(demog_summary_adt, 'demog_summary_sepsis_adt')
 demog_summary_adt_cchmc_colorado <- get_demog_summary(cohort=results_tbl('confirmed_sepsis_adt') %>%
                                                         filter(sex_cat %in% c('Male','Female')) %>%
                                                         filter(site %in% c('cchmc','colorado')),
-                                       vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+                                       vars=c('site',#'raceth_cat',
+                                              'race_cat2','eth_cat2','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
-                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            #variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='race_cat2' ~ 'Race',
+                            variable=='eth_cat2' ~ 'Ethnicity',
                             variable=='sex_cat' ~ 'Sex',
                             variable=='age_group' ~ 'Age Group',
                             variable=='Total' ~ '1_Total',
@@ -202,9 +208,12 @@ suspected_sepsis_adt_cchmc_colorado_ct <- results_tbl('suspected_sepsis_adt') %>
 
 demog_summary_suspected_adt <- get_demog_summary(cohort=results_tbl('suspected_sepsis_adt') %>%
                                                    filter(sex_cat %in% c('Male','Female')),
-                                       vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+                                       vars=c('site',#'raceth_cat',
+                                              'race_cat2','eth_cat2','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
-                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            #variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='race_cat2' ~ 'Race',
+                            variable=='eth_cat2' ~ 'Ethnicity',
                             variable=='sex_cat' ~ 'Sex',
                             variable=='age_group' ~ 'Age Group',
                             variable=='Total' ~ '1_Total',
@@ -218,9 +227,12 @@ output_tbl(demog_summary_suspected_adt, 'demog_summary_suspected_sepsis_adt')
 demog_summary_suspected_adt_cchmc_colorado <- get_demog_summary(cohort=results_tbl('suspected_sepsis_adt') %>%
                                                                   filter(sex_cat %in% c('Male','Female')) %>%
                                                                   filter(site %in% c('cchmc','colorado')),
-                                                      vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+                                                      vars=c('site',#'raceth_cat',
+                                                             'race_cat2','eth_cat2', 'sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
-                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            #variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='race_cat2' ~ 'Race',
+                            variable=='eth_cat2' ~ 'Ethnicity',
                             variable=='sex_cat' ~ 'Sex',
                             variable=='age_group' ~ 'Age Group',
                             variable=='Total' ~ '1_Total',
@@ -236,9 +248,12 @@ demog_summary_adt_2level <- get_demog_summary(cohort=results_tbl('confirmed_seps
                                          inner_join(results_tbl('suspected_sepsis_adt') %>% distinct(person_id),
                                                     by=c('person_id')) %>%
                                            filter(sex_cat %in% c('Male','Female')),
-                                       vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+                                       vars=c('site',#'raceth_cat',
+                                              'race_cat2','eth_cat2','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
-                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            #variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='race_cat2' ~ 'Race',
+                            variable=='eth_cat2' ~ 'Ethnicity',
                             variable=='sex_cat' ~ 'Sex',
                             variable=='age_group' ~ 'Age Group',
                             variable=='Total' ~ '1_Total',
@@ -253,9 +268,12 @@ demog_summary_adt_cchmc_colorado_2level <- get_demog_summary(cohort=results_tbl(
                                                                    by=c('person_id')) %>%
                                                           filter(sex_cat %in% c('Male','Female')) %>%
                                                         filter(site %in% c('cchmc','colorado')),
-                                                      vars=c('site','raceth_cat','sex_cat','age_group')) %>%
+                                                      vars=c('site',#'raceth_cat',
+                                                             'race_cat2','eth_cat2','sex_cat','age_group')) %>%
   mutate(variable=case_when(variable=='site' ~ 'Site',
-                            variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            #variable=='raceth_cat' ~ 'Race/Ethnicity',
+                            variable=='race_cat2' ~ 'Race',
+                            variable=='eth_cat2' ~ 'Ethnicity',
                             variable=='sex_cat' ~ 'Sex',
                             variable=='age_group' ~ 'Age Group',
                             variable=='Total' ~ '1_Total',

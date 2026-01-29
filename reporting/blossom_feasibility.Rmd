@@ -157,6 +157,13 @@ redistribute beyond PEDSnet staff and the requester.**
   * 2. A sepsis condition code occurring within 7 days before or after the PICU entry date
 * **Broad-spectrum antibiotics** include the following categories: vancomycin, ceftazidime, cefotaxime, ceftriaxone, ciprofloxacin, ertapenem, imipenem, meropenem, levofloxacin, ceftaroline, aztreonam, cefepime, linezolid, daptomycin, piperacillin-tazobactam
 * **IV fluids** include the following fluids/categories: Ringer (balanced), Hartmann (balanced), plasmalyte (balanced), saline
+<!-- * **Race/Ethnicity Categories:** -->
+<!--   * **Hispanic:** Includes Hispanic ethnicity -->
+<!--   * **Non-Hispanic White or Middle Eastern/North African:** Includes non-Hispanic White and Non-Hispanic Middle Eastern/North African -->
+<!--   * **Non-Hispanic Black/AA:** Includes non-Hispanic Black/African American -->
+<!--   * **Non-Hispanic Asian:** Includes non-Hispanic Asian -->
+<!--   * **Non-Hispanic Multiple or AI/AN or NH/OPI:** Includes non-Hispanic Multiple Race, Non-Hispanic American Indian/Alaska Native and Non-Hispanic Native Hawaiian and Other Pacific Islander -->
+<!--   * **Other/Unknown:** Includes other or unknown race and/or ethnicity -->
 
 ### Patient Attrition
 
@@ -165,7 +172,14 @@ attrition_tbl %>% reactable(defaultPageSize=17)
 ```
 
 ### Demographics: All Sites
-   
+
+* Race Categories:
+  * White or Middle Eastern North African
+  * Black or African American
+  * Asian
+  * Multiple or AI/AN or NH/OPI: Multiple race or American Indian/Alaska Native or Native Hawaiian or Other Pacific Islander
+  * Unknown/Other/Refuse: Race other/unknown/refused
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 
 demog_summary_all %>% reactable(defaultPageSize=24)
@@ -173,6 +187,13 @@ demog_summary_all %>% reactable(defaultPageSize=24)
 ```
 
 ### Demographics: CCHMC and Colorado only
+
+* Race Categories:
+  * White or Middle Eastern North African
+  * Black or African American
+  * Asian
+  * Multiple or AI/AN or NH/OPI: Multiple race or American Indian/Alaska Native or Native Hawaiian or Other Pacific Islander
+  * Unknown/Other/Refuse: Race other/unknown/refused
    
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 
